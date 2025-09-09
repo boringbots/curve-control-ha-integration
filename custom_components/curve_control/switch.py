@@ -86,10 +86,27 @@ class CurveControlOptimizationSwitch(CoordinatorEntity, SwitchEntity):
         self.coordinator.optimization_enabled = True
         _LOGGER.info("Temperature optimization enabled")
         
-        # If we have an optimization, apply it immediately
-        if self.coordinator.optimization_results:
-            # Trigger the climate entity to update
-            await self.coordinator.async_request_refresh()
+        # Find and notify the climate entity to resume control
+        climate_entity = None
+        for entity_id in self.hass.states.async_entity_ids("climate"):
+            if "curve_control" in entity_id:
+                climate_entity = entity_id
+                break
+        
+        if climate_entity:
+            # Trigger immediate setpoint application
+            _LOGGER.info(f"Notifying {climate_entity} to resume optimization")
+            if self.coordinator.get_current_setpoint():
+                setpoint = self.coordinator.get_current_setpoint()
+                await self.hass.services.async_call(
+                    "climate",
+                    "set_temperature",
+                    {
+                        "entity_id": climate_entity,
+                        "temperature": setpoint,
+                    },
+                    blocking=False,
+                )
         
         self.async_write_ha_state()
     
@@ -98,6 +115,9 @@ class CurveControlOptimizationSwitch(CoordinatorEntity, SwitchEntity):
         self._is_on = False
         self.coordinator.optimization_enabled = False
         _LOGGER.info("Temperature optimization disabled - manual control active")
+        
+        # Stop any pending setpoint changes
+        # The climate entity will check this flag and stop auto-control
         
         self.async_write_ha_state()
     

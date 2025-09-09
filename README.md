@@ -67,101 +67,23 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 - `curve_control.update_schedule` - Update optimization parameters
 - `curve_control.force_optimization` - Force immediate recalculation
 
-## Dashboard Setup
+## Dashboard
 
-### Visualizing Your Temperature Schedule
+The integration automatically creates a custom dashboard card with:
 
-For the best visualization experience, we recommend using ApexCharts Card:
+- **Toggle Switch** - Enable/disable optimization with one click
+- **Status Display** - Current savings and optimization status  
+- **Temperature Graph** - Visual 24-hour schedule showing target temperatures vs electricity prices
+- **Current Info** - Next setpoint and time period details
 
-#### Step 1: Install ApexCharts Card
-
-1. Open HACS in Home Assistant
-2. Go to "Frontend" section
-3. Click "+ Explore & Download Repositories"
-4. Search for "ApexCharts Card"
-5. Click "Download" and select the latest version
-6. Reload your browser (Ctrl+F5)
-
-#### Step 2: Add the Temperature Schedule Graph
+After installing the integration, you can add the Curve Control card to your dashboard:
 
 1. Edit your dashboard
-2. Add a new card (click "+")
-3. Choose "Manual" card
-4. Paste this configuration:
+2. Click "Add Card"
+3. Search for "Curve Control Card" 
+4. Configure and add to your dashboard
 
-```yaml
-type: custom:apexcharts-card
-header:
-  show: true
-  title: 24-Hour Temperature Schedule
-graph_span: 24h
-yaxis:
-  - id: temp
-    min: 65
-    max: 80
-    apex_config:
-      title:
-        text: Temperature (°F)
-  - id: price
-    opposite: true
-    min: 0
-    max: 0.6
-    apex_config:
-      title:
-        text: Price ($/kWh)
-series:
-  - entity: sensor.curve_control_temperature_schedule_chart
-    name: Target Temp
-    yaxis_id: temp
-    data_generator: |
-      const data = entity.attributes.graph_data;
-      if (!data || !data.datasets) return [];
-      const target = data.datasets[0].data;
-      return target.map((temp, i) => {
-        const hour = Math.floor(i / 2);
-        const minute = (i % 2) * 30;
-        const time = new Date();
-        time.setHours(hour, minute, 0, 0);
-        return [time.getTime(), temp];
-      });
-    type: line
-    color: green
-    stroke_width: 3
-  - entity: sensor.curve_control_temperature_schedule_chart
-    name: Electricity Price
-    yaxis_id: price
-    data_generator: |
-      const data = entity.attributes.graph_data;
-      if (!data || !data.datasets) return [];
-      const prices = data.datasets[3].data;
-      return prices.map((price, i) => {
-        const hour = Math.floor(i / 2);
-        const minute = (i % 2) * 30;
-        const time = new Date();
-        time.setHours(hour, minute, 0, 0);
-        return [time.getTime(), price];
-      });
-    type: area
-    color: orange
-    opacity: 0.3
-```
-
-#### Step 3: Add the Optimization Toggle
-
-Add this card to control optimization:
-
-```yaml
-type: entities
-title: Energy Optimization Control
-entities:
-  - entity: switch.curve_control_use_optimized_temperatures
-    name: Use Optimized Schedule
-    icon: mdi:chart-line
-  - entity: sensor.curve_control_savings
-    name: Cost Savings
-  - entity: sensor.curve_control_status
-    name: Status
-```
+The card will automatically update with your optimization schedule and provides full control over the system.
 
 ## Example Automation
 

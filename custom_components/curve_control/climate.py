@@ -144,6 +144,12 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
         )
         _LOGGER.info("Set up automatic schedule control")
     
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up when entity is being removed."""
+        if self._schedule_control_listener:
+            self._schedule_control_listener()
+            self._schedule_control_listener = None
+    
     async def _check_and_apply_schedule(self, now) -> None:
         """Check if we need to apply a new setpoint from the schedule."""
         if not self._thermostat_entity_id or not self.coordinator.optimization_results:
@@ -341,6 +347,13 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         _LOGGER.info("Coordinator updated - new optimization received")
+        
+        # Only apply setpoint if optimization is enabled
+        if not self.coordinator.optimization_enabled:
+            _LOGGER.info("Optimization disabled - skipping automatic control")
+            self._sync_with_thermostat()
+            self.async_write_ha_state()
+            return
         
         # Immediately apply the new optimal setpoint
         if self.coordinator.get_current_setpoint() and self._thermostat_entity_id:

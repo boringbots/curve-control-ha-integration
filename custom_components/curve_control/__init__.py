@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 from typing import Any
+import os
 
 import aiohttp
 import async_timeout
@@ -13,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.components import frontend
 
 from .const import (
     DOMAIN,
@@ -39,6 +41,9 @@ PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.SENSOR, Platform.SWITCH]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Curve Control from a config entry."""
     hass.data.setdefault(DOMAIN, {})
+    
+    # Register custom card
+    await async_register_custom_card(hass)
     
     # Create the data coordinator
     coordinator = CurveControlCoordinator(hass, entry)
@@ -77,6 +82,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     
     return True
+
+
+async def async_register_custom_card(hass: HomeAssistant) -> None:
+    """Register the custom Lovelace card."""
+    try:
+        # Get the path to our custom card
+        card_path = hass.config.path("custom_components", "curve_control", "www", "curve-control-card.js")
+        
+        # Check if file exists, if not use the one from the integration
+        import pathlib
+        integration_dir = pathlib.Path(__file__).parent
+        www_dir = integration_dir / "www"
+        
+        # Ensure www directory exists
+        www_dir.mkdir(exist_ok=True)
+        
+        # Register static path for the card
+        hass.http.register_static_path(
+            "/hacsfiles/curve_control/curve-control-card.js",
+            str(www_dir / "curve-control-card.js"),
+            cache_headers=False
+        )
+        
+        # Add as lovelace resource
+        if "lovelace" not in hass.data:
+            hass.data["lovelace"] = {}
+        if "resources" not in hass.data["lovelace"]:
+            hass.data["lovelace"]["resources"] = []
+            
+        resource = {
+            "url": "/hacsfiles/curve_control/curve-control-card.js",
+            "type": "module"
+        }
+        
+        if resource not in hass.data["lovelace"]["resources"]:
+            hass.data["lovelace"]["resources"].append(resource)
+        
+        _LOGGER.info("Registered Curve Control custom card")
+    except Exception as err:
+        _LOGGER.warning(f"Could not register custom card: {err}")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
