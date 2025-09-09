@@ -12,6 +12,8 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 - 📊 **Real-time Monitoring** - Track savings, CO2 reduction, and optimization status
 - ⚡ **Multiple Utility Rates** - Supports 7 major utility providers
 - 🎯 **Comfort First** - Maintains your comfort preferences while optimizing
+- 🔄 **Manual Override** - Toggle optimization on/off with a simple switch
+- 📈 **Visual Schedule** - Graph showing 24-hour temperature schedule vs electricity prices
 
 ## Supported Utility Providers
 
@@ -56,10 +58,110 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 - `sensor.curve_control_status` - Optimization status
 - `sensor.curve_control_next_setpoint` - Next temperature target
 - `sensor.curve_control_current_interval` - Current time interval
+- `sensor.curve_control_temperature_schedule_chart` - Graph data for visualization
+
+### Switches
+- `switch.curve_control_use_optimized_temperatures` - Toggle optimization on/off
 
 ### Services
 - `curve_control.update_schedule` - Update optimization parameters
 - `curve_control.force_optimization` - Force immediate recalculation
+
+## Dashboard Setup
+
+### Visualizing Your Temperature Schedule
+
+For the best visualization experience, we recommend using ApexCharts Card:
+
+#### Step 1: Install ApexCharts Card
+
+1. Open HACS in Home Assistant
+2. Go to "Frontend" section
+3. Click "+ Explore & Download Repositories"
+4. Search for "ApexCharts Card"
+5. Click "Download" and select the latest version
+6. Reload your browser (Ctrl+F5)
+
+#### Step 2: Add the Temperature Schedule Graph
+
+1. Edit your dashboard
+2. Add a new card (click "+")
+3. Choose "Manual" card
+4. Paste this configuration:
+
+```yaml
+type: custom:apexcharts-card
+header:
+  show: true
+  title: 24-Hour Temperature Schedule
+graph_span: 24h
+yaxis:
+  - id: temp
+    min: 65
+    max: 80
+    apex_config:
+      title:
+        text: Temperature (°F)
+  - id: price
+    opposite: true
+    min: 0
+    max: 0.6
+    apex_config:
+      title:
+        text: Price ($/kWh)
+series:
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Target Temp
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const target = data.datasets[0].data;
+      return target.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: green
+    stroke_width: 3
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Electricity Price
+    yaxis_id: price
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const prices = data.datasets[3].data;
+      return prices.map((price, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), price];
+      });
+    type: area
+    color: orange
+    opacity: 0.3
+```
+
+#### Step 3: Add the Optimization Toggle
+
+Add this card to control optimization:
+
+```yaml
+type: entities
+title: Energy Optimization Control
+entities:
+  - entity: switch.curve_control_use_optimized_temperatures
+    name: Use Optimized Schedule
+    icon: mdi:chart-line
+  - entity: sensor.curve_control_savings
+    name: Cost Savings
+  - entity: sensor.curve_control_status
+    name: Status
+```
 
 ## Example Automation
 
@@ -84,10 +186,11 @@ automation:
 
 ## How It Works
 
-1. **Learning**: The integration monitors your thermostat's performance and learns heat-up/cool-down rates
-2. **Scheduling**: Based on your comfort preferences, it creates temperature bounds for each 30-minute period
-3. **Optimization**: A cloud-based algorithm calculates the optimal HVAC schedule to minimize costs while maintaining comfort
-4. **Control**: The integration automatically adjusts your thermostat according to the optimized schedule
+1. **Daily Optimization**: At midnight, the system automatically requests a new optimized schedule
+2. **User Updates**: When you change preferences, optimization runs immediately
+3. **Smart Control**: Every minute, the system checks and applies the optimal temperature
+4. **Manual Override**: Use the toggle switch to disable optimization and control manually
+5. **Visual Feedback**: The graph shows your 24-hour schedule aligned with electricity prices
 
 ## Backend Service
 

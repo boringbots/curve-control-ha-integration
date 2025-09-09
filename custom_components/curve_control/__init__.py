@@ -25,7 +25,6 @@ from .const import (
     CONF_SAVINGS_LEVEL,
     CONF_THERMOSTAT_ENTITY,
     DEFAULT_BACKEND_URL,
-    UPDATE_INTERVAL,
     INTERVALS_PER_DAY,
     COOL_30MIN,
     HEAT_30MIN,
@@ -34,7 +33,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -118,6 +117,7 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         self._daily_schedule = None
         self._schedule_date = None
         self._midnight_listener = None
+        self.optimization_enabled = True  # Flag for optimization toggle
         
         super().__init__(
             hass,

@@ -308,33 +308,74 @@ class CurveControlScheduleChartSensor(CurveControlBaseSensor):
         attrs = {}
         
         if not self.coordinator._daily_schedule:
-            attrs["chart_data"] = None
+            attrs["graph_data"] = None
             return attrs
         
-        # Get the temperature schedule
+        # Get the temperature schedule and bounds
         schedule = self.coordinator._daily_schedule
         location = self.coordinator.config.get("location", 1)
         
+        # Get high/low temperature bounds from coordinator
+        bounds = self.coordinator.get_schedule_bounds()
+        high_temps = bounds[0] if bounds else [75] * 48  # Default if no bounds
+        low_temps = bounds[1] if bounds else [68] * 48   # Default if no bounds
+        
         # Generate time labels for 30-minute intervals
         time_labels = []
+        hourly_labels = []  # For cleaner hourly display
         for i in range(48):  # 48 30-minute intervals
             hour = i // 2
             minute = (i % 2) * 30
             time_labels.append(f"{hour:02d}:{minute:02d}")
+            if i % 2 == 0:  # Every hour
+                hourly_labels.append(f"{hour:02d}:00")
         
-        # Get pricing data based on location
-        pricing_data = self._generate_pricing_schedule(location)
+        # Get pricing data and convert to numeric values for graphing
+        pricing_schedule, price_values = self._generate_pricing_with_values(location)
         
-        # Create chart data structure
-        chart_data = {
-            "labels": time_labels,
-            "temperature_schedule": schedule,
-            "pricing_schedule": pricing_data,
+        # Create graph-ready data structure
+        graph_data = {
+            "time_labels": time_labels,
+            "hourly_labels": hourly_labels,
+            "datasets": [
+                {
+                    "label": "Target Temperature",
+                    "data": schedule,
+                    "borderColor": "rgb(75, 192, 192)",
+                    "backgroundColor": "rgba(75, 192, 192, 0.2)",
+                    "yAxisID": "y-temperature"
+                },
+                {
+                    "label": "High Limit",
+                    "data": high_temps,
+                    "borderColor": "rgb(255, 99, 132)",
+                    "backgroundColor": "rgba(255, 99, 132, 0.1)",
+                    "borderDash": [5, 5],
+                    "yAxisID": "y-temperature"
+                },
+                {
+                    "label": "Low Limit",
+                    "data": low_temps,
+                    "borderColor": "rgb(54, 162, 235)",
+                    "backgroundColor": "rgba(54, 162, 235, 0.1)",
+                    "borderDash": [5, 5],
+                    "yAxisID": "y-temperature"
+                },
+                {
+                    "label": "Electricity Price",
+                    "data": price_values,
+                    "borderColor": "rgb(255, 206, 86)",
+                    "backgroundColor": "rgba(255, 206, 86, 0.3)",
+                    "type": "bar",
+                    "yAxisID": "y-price"
+                }
+            ],
             "current_interval": self._get_current_interval(),
             "schedule_date": str(self.coordinator._schedule_date) if self.coordinator._schedule_date else None,
         }
         
-        attrs["chart_data"] = chart_data
+        attrs["graph_data"] = graph_data
+        attrs["pricing_periods"] = pricing_schedule  # Text labels for pricing
         attrs["chart_type"] = "temperature_vs_pricing"
         attrs["update_timestamp"] = datetime.now().isoformat()
         
@@ -347,10 +388,19 @@ class CurveControlScheduleChartSensor(CurveControlBaseSensor):
         
         return attrs
     
-    def _generate_pricing_schedule(self, location: int) -> list[str]:
-        """Generate pricing schedule based on location."""
-        # This is a simplified pricing model - in production you'd get real rate data
-        pricing = []
+    def _generate_pricing_with_values(self, location: int) -> tuple[list[str], list[float]]:
+        """Generate pricing schedule with numeric values for graphing."""
+        pricing_labels = []
+        pricing_values = []
+        
+        # Define price levels for graphing (relative values)
+        price_map = {
+            "Super Off-Peak": 0.15,
+            "Off-Peak": 0.25,
+            "Standard": 0.35,
+            "On-Peak": 0.55,
+            "Peak": 0.55
+        }
         
         for i in range(48):  # 48 30-minute intervals
             hour = i // 2
@@ -358,21 +408,29 @@ class CurveControlScheduleChartSensor(CurveControlBaseSensor):
             # Example pricing for SDG&E TOU-DR1 (location 1)
             if location == 1:
                 if 16 <= hour < 21:  # 4pm-9pm On-Peak
-                    pricing.append("On-Peak")
+                    label = "On-Peak"
                 elif 6 <= hour < 16 or 21 <= hour < 24:  # 6am-4pm, 9pm-12am Off-Peak
-                    pricing.append("Off-Peak")
+                    label = "Off-Peak"
                 else:  # 12am-6am Super Off-Peak
-                    pricing.append("Super Off-Peak")
+                    label = "Super Off-Peak"
             else:
                 # Default pricing
                 if 17 <= hour < 21:  # Peak hours
-                    pricing.append("Peak")
+                    label = "Peak"
                 elif 9 <= hour < 17 or 21 <= hour < 23:
-                    pricing.append("Standard")
+                    label = "Standard"
                 else:
-                    pricing.append("Off-Peak")
+                    label = "Off-Peak"
+            
+            pricing_labels.append(label)
+            pricing_values.append(price_map.get(label, 0.35))
         
-        return pricing
+        return pricing_labels, pricing_values
+    
+    def _generate_pricing_schedule(self, location: int) -> list[str]:
+        """Generate pricing schedule based on location (legacy method)."""
+        labels, _ = self._generate_pricing_with_values(location)
+        return labels
     
     def _get_current_interval(self) -> int:
         """Get current 30-minute interval index."""

@@ -1,0 +1,150 @@
+# Example Lovelace Card Configuration for Curve Control Dashboard
+# Add this to your Home Assistant dashboard configuration
+
+# 1. Optimization Toggle Switch
+type: entities
+title: Curve Control Energy Optimizer
+entities:
+  - entity: switch.curve_control_use_optimized_temperatures
+    name: Use Optimized Temperatures
+    icon: mdi:chart-line
+
+---
+
+# 2. Temperature Schedule Graph using ApexCharts Card
+# First install ApexCharts Card via HACS: https://github.com/RomRider/apexcharts-card
+type: custom:apexcharts-card
+header:
+  show: true
+  title: 24-Hour Temperature Schedule
+  show_states: true
+  colorize_states: true
+graph_span: 24h
+yaxis:
+  - id: temp
+    min: 65
+    max: 80
+    decimals: 1
+    apex_config:
+      title:
+        text: Temperature (°F)
+  - id: price
+    opposite: true
+    min: 0
+    max: 0.6
+    decimals: 2
+    apex_config:
+      title:
+        text: Electricity Price ($/kWh)
+series:
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Target Temperature
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const target = data.datasets[0].data;
+      return target.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: rgb(75, 192, 192)
+    stroke_width: 3
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: High Limit
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const high = data.datasets[1].data;
+      return high.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: rgb(255, 99, 132)
+    stroke_width: 1
+    opacity: 0.5
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Low Limit
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const low = data.datasets[2].data;
+      return low.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: rgb(54, 162, 235)
+    stroke_width: 1
+    opacity: 0.5
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Electricity Price
+    yaxis_id: price
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const prices = data.datasets[3].data;
+      return prices.map((price, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), price];
+      });
+    type: area
+    color: rgb(255, 206, 86)
+    opacity: 0.3
+
+---
+
+# 3. Alternative: Using mini-graph-card (simpler but less features)
+# Install via HACS: https://github.com/kalkih/mini-graph-card
+type: custom:mini-graph-card
+name: Temperature Schedule
+entities:
+  - entity: sensor.curve_control_next_setpoint
+    name: Target
+    color: green
+  - entity: climate.curve_control_thermostat
+    attribute: current_temperature
+    name: Current
+    color: blue
+    y_axis: secondary
+hours_to_show: 24
+points_per_hour: 2
+line_width: 3
+show:
+  labels: true
+  points: false
+  legend: true
+
+---
+
+# 4. Statistics Cards
+type: horizontal-stack
+cards:
+  - type: entity
+    entity: sensor.curve_control_savings
+    name: Cost Savings
+    icon: mdi:currency-usd
+  - type: entity
+    entity: sensor.curve_control_co2_avoided
+    name: CO2 Avoided
+    icon: mdi:molecule-co2
+  - type: entity
+    entity: sensor.curve_control_status
+    name: Status
+    icon: mdi:check-circle

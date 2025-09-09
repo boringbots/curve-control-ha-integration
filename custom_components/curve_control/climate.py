@@ -149,6 +149,10 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
         if not self._thermostat_entity_id or not self.coordinator.optimization_results:
             return
         
+        # Check if optimization is enabled
+        if not self.coordinator.optimization_enabled:
+            return
+        
         # Get current optimal setpoint
         optimal_setpoint = self.coordinator.get_current_setpoint()
         if not optimal_setpoint:
@@ -196,10 +200,11 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def target_temperature(self) -> float | None:
         """Return the temperature we try to reach."""
-        # Get optimized setpoint from coordinator
-        setpoint = self.coordinator.get_current_setpoint()
-        if setpoint:
-            return setpoint
+        # Get optimized setpoint from coordinator if optimization is enabled
+        if self.coordinator.optimization_enabled:
+            setpoint = self.coordinator.get_current_setpoint()
+            if setpoint:
+                return setpoint
         
         # Fall back to manual target or linked thermostat
         if self._target_temperature:
