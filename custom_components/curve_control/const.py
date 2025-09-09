@@ -23,8 +23,8 @@ DEFAULT_TIME_AWAY: Final = "08:00"
 DEFAULT_TIME_HOME: Final = "17:00"
 DEFAULT_SAVINGS_LEVEL: Final = 2
 
-# Update interval in minutes
-UPDATE_INTERVAL: Final = 30
+# Update interval in minutes (DEPRECATED - now event-driven)
+# UPDATE_INTERVAL: Final = 30
 
 # Time intervals
 INTERVALS_PER_HOUR: Final = 2  # 30-minute intervals

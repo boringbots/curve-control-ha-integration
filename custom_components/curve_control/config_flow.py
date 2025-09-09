@@ -230,6 +230,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=info["title"],
                 )
                 
+                # Trigger optimization with new preferences
+                if DOMAIN in self.hass.data and entry.entry_id in self.hass.data[DOMAIN]:
+                    coordinator = self.hass.data[DOMAIN][entry.entry_id]["coordinator"]
+                    await coordinator.force_optimization()
+                
                 # Reload the integration
                 await self.hass.config_entries.async_reload(entry.entry_id)
                 

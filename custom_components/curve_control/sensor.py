@@ -37,6 +37,7 @@ async def async_setup_entry(
         CurveControlStatusSensor(coordinator, entry),
         CurveControlNextSetpointSensor(coordinator, entry),
         CurveControlCurrentIntervalSensor(coordinator, entry),
+        CurveControlScheduleChartSensor(coordinator, entry),
     ]
     
     async_add_entities(sensors, True)
@@ -283,3 +284,98 @@ class CurveControlCurrentIntervalSensor(CurveControlBaseSensor):
                 return "Super Off-Peak"
         
         return "Standard"
+
+
+class CurveControlScheduleChartSensor(CurveControlBaseSensor):
+    """Sensor that provides temperature schedule and pricing data for UI plots."""
+    
+    _attr_icon = "mdi:chart-line-variant"
+    
+    def __init__(self, coordinator: CurveControlCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the schedule chart sensor."""
+        super().__init__(coordinator, entry, "schedule_chart", "Temperature Schedule Chart")
+    
+    @property
+    def native_value(self) -> str:
+        """Return the state of the sensor."""
+        if self.coordinator._daily_schedule:
+            return f"Schedule loaded ({len(self.coordinator._daily_schedule)} intervals)"
+        return "No schedule"
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return chart data for temperature schedule vs pricing."""
+        attrs = {}
+        
+        if not self.coordinator._daily_schedule:
+            attrs["chart_data"] = None
+            return attrs
+        
+        # Get the temperature schedule
+        schedule = self.coordinator._daily_schedule
+        location = self.coordinator.config.get("location", 1)
+        
+        # Generate time labels for 30-minute intervals
+        time_labels = []
+        for i in range(48):  # 48 30-minute intervals
+            hour = i // 2
+            minute = (i % 2) * 30
+            time_labels.append(f"{hour:02d}:{minute:02d}")
+        
+        # Get pricing data based on location
+        pricing_data = self._generate_pricing_schedule(location)
+        
+        # Create chart data structure
+        chart_data = {
+            "labels": time_labels,
+            "temperature_schedule": schedule,
+            "pricing_schedule": pricing_data,
+            "current_interval": self._get_current_interval(),
+            "schedule_date": str(self.coordinator._schedule_date) if self.coordinator._schedule_date else None,
+        }
+        
+        attrs["chart_data"] = chart_data
+        attrs["chart_type"] = "temperature_vs_pricing"
+        attrs["update_timestamp"] = datetime.now().isoformat()
+        
+        # Add summary statistics
+        if schedule:
+            attrs["min_temp"] = min(schedule)
+            attrs["max_temp"] = max(schedule)
+            attrs["avg_temp"] = sum(schedule) / len(schedule)
+            attrs["temp_range"] = max(schedule) - min(schedule)
+        
+        return attrs
+    
+    def _generate_pricing_schedule(self, location: int) -> list[str]:
+        """Generate pricing schedule based on location."""
+        # This is a simplified pricing model - in production you'd get real rate data
+        pricing = []
+        
+        for i in range(48):  # 48 30-minute intervals
+            hour = i // 2
+            
+            # Example pricing for SDG&E TOU-DR1 (location 1)
+            if location == 1:
+                if 16 <= hour < 21:  # 4pm-9pm On-Peak
+                    pricing.append("On-Peak")
+                elif 6 <= hour < 16 or 21 <= hour < 24:  # 6am-4pm, 9pm-12am Off-Peak
+                    pricing.append("Off-Peak")
+                else:  # 12am-6am Super Off-Peak
+                    pricing.append("Super Off-Peak")
+            else:
+                # Default pricing
+                if 17 <= hour < 21:  # Peak hours
+                    pricing.append("Peak")
+                elif 9 <= hour < 17 or 21 <= hour < 23:
+                    pricing.append("Standard")
+                else:
+                    pricing.append("Off-Peak")
+        
+        return pricing
+    
+    def _get_current_interval(self) -> int:
+        """Get current 30-minute interval index."""
+        from datetime import datetime
+        now = datetime.now()
+        return (now.hour * 2) + (now.minute // 30)

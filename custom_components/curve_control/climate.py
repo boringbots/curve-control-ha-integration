@@ -86,6 +86,7 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
         self._hvac_action = HVACAction.IDLE
         
         # We'll sync with thermostat after entity is added to hass
+        self._schedule_control_listener = None
     
     @callback
     def _sync_with_thermostat(self) -> None:
@@ -126,6 +127,60 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
         # Now sync with thermostat since hass is available
         if self._thermostat_entity_id:
             self._sync_with_thermostat()
+        
+        # Set up automatic schedule following
+        self._setup_schedule_control()
+    
+    def _setup_schedule_control(self) -> None:
+        """Set up automatic control based on optimized schedule."""
+        from homeassistant.helpers.event import async_track_time_change
+        
+        # Check every minute if we need to update setpoint
+        self._schedule_control_listener = async_track_time_change(
+            self.hass,
+            self._check_and_apply_schedule,
+            minute=range(0, 60, 1),  # Every minute
+            second=0,
+        )
+        _LOGGER.info("Set up automatic schedule control")
+    
+    async def _check_and_apply_schedule(self, now) -> None:
+        """Check if we need to apply a new setpoint from the schedule."""
+        if not self._thermostat_entity_id or not self.coordinator.optimization_results:
+            return
+        
+        # Get current optimal setpoint
+        optimal_setpoint = self.coordinator.get_current_setpoint()
+        if not optimal_setpoint:
+            return
+        
+        # Get current thermostat temperature
+        state = self.hass.states.get(self._thermostat_entity_id)
+        if not state:
+            return
+        
+        current_setpoint = state.attributes.get("temperature")
+        
+        # Apply setpoint if different (with small tolerance for floating point)
+        if current_setpoint is None or abs(optimal_setpoint - current_setpoint) > 0.1:
+            _LOGGER.info(f"Applying optimal setpoint: {optimal_setpoint}°F (was {current_setpoint}°F)")
+            await self._apply_setpoint_immediately(optimal_setpoint)
+    
+    async def _apply_setpoint_immediately(self, temperature: float) -> None:
+        """Apply setpoint to thermostat immediately and wait for confirmation."""
+        try:
+            await self.hass.services.async_call(
+                "climate",
+                "set_temperature",
+                {
+                    "entity_id": self._thermostat_entity_id,
+                    "temperature": temperature,
+                },
+                blocking=True,  # Wait for completion
+            )
+            _LOGGER.debug(f"Successfully set thermostat to {temperature}°F")
+        except Exception as err:
+            _LOGGER.error(f"Failed to set thermostat temperature: {err}")
     
     @property
     def current_temperature(self) -> float | None:
@@ -212,6 +267,14 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
         if self._thermostat_entity_id:
             attrs["linked_thermostat"] = self._thermostat_entity_id
         
+        # Add schedule control status
+        if self.coordinator._daily_schedule:
+            attrs["daily_schedule_loaded"] = True
+            attrs["schedule_date"] = str(self.coordinator._schedule_date)
+            attrs["schedule_intervals"] = len(self.coordinator._daily_schedule)
+        else:
+            attrs["daily_schedule_loaded"] = False
+        
         return attrs
     
     async def async_set_temperature(self, **kwargs: Any) -> None:
@@ -272,23 +335,17 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        # Update target temperature from optimization
-        if self.coordinator.get_current_setpoint():
+        _LOGGER.info("Coordinator updated - new optimization received")
+        
+        # Immediately apply the new optimal setpoint
+        if self.coordinator.get_current_setpoint() and self._thermostat_entity_id:
             new_setpoint = self.coordinator.get_current_setpoint()
+            _LOGGER.info(f"New optimal setpoint from coordinator: {new_setpoint}°F")
             
-            # If we have a linked thermostat and the setpoint changed, update it
-            if self._thermostat_entity_id and new_setpoint != self._target_temperature:
-                self.hass.async_create_task(
-                    self.hass.services.async_call(
-                        "climate",
-                        "set_temperature",
-                        {
-                            "entity_id": self._thermostat_entity_id,
-                            ATTR_TEMPERATURE: new_setpoint,
-                        },
-                        blocking=False,
-                    )
-                )
+            # Apply immediately without delay
+            self.hass.async_create_task(
+                self._apply_setpoint_immediately(new_setpoint)
+            )
         
         # Sync with linked thermostat
         self._sync_with_thermostat()

@@ -61,10 +61,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Handle schedule update service call."""
         await coordinator.async_update_schedule(call.data)
     
+    async def handle_force_optimization(call):
+        """Handle force optimization service call."""
+        await coordinator.force_optimization()
+    
     hass.services.async_register(
         DOMAIN,
         "update_schedule",
         handle_update_schedule,
+    )
+    
+    hass.services.async_register(
+        DOMAIN,
+        "force_optimization",
+        handle_force_optimization,
     )
     
     return True
@@ -104,12 +114,40 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         self.heat_up_rate = HEAT_30MIN  # Default value for 30-min intervals
         self.cool_down_rate = COOL_30MIN  # Default value for 30-min intervals
         
+        # Store daily schedule - no automatic polling
+        self._daily_schedule = None
+        self._schedule_date = None
+        self._midnight_listener = None
+        
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(minutes=UPDATE_INTERVAL),
+            update_interval=None,  # Disable automatic polling
         )
+        
+        # Set up midnight optimization
+        self._setup_midnight_optimization()
+    
+    def _setup_midnight_optimization(self) -> None:
+        """Set up automatic optimization at midnight."""
+        import homeassistant.util.dt as dt_util
+        from homeassistant.helpers.event import async_track_time_change
+        
+        # Schedule optimization at midnight every day
+        self._midnight_listener = async_track_time_change(
+            self.hass,
+            self._handle_midnight_optimization,
+            hour=0,
+            minute=0,
+            second=0,
+        )
+        _LOGGER.info("Scheduled daily optimization at midnight")
+    
+    async def _handle_midnight_optimization(self, now) -> None:
+        """Handle midnight optimization trigger."""
+        _LOGGER.info("Running scheduled midnight optimization")
+        await self.async_request_refresh()
     
     async def _async_update_data(self):
         """Fetch data from backend."""
@@ -147,6 +185,13 @@ class CurveControlCoordinator(DataUpdateCoordinator):
                 self.optimization_results = data
                 self.schedule_data = data.get("HourlyTemperature", [])
                 
+                # Store the daily schedule with date
+                from datetime import datetime
+                self._daily_schedule = data.get("bestTempActual", [])
+                self._schedule_date = datetime.now().date()
+                
+                _LOGGER.info(f"Optimization complete. Schedule updated for {self._schedule_date}")
+                
                 return data
                 
         except aiohttp.ClientError as err:
@@ -155,7 +200,9 @@ class CurveControlCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Unexpected error: {err}")
     
     async def async_update_schedule(self, data: dict[str, Any]) -> None:
-        """Update the schedule configuration."""
+        """Update the schedule configuration and trigger immediate optimization."""
+        _LOGGER.info("User updated preferences - triggering optimization")
+        
         # Update configuration
         if "homeSize" in data:
             self.config["homeSize"] = data["homeSize"]
@@ -166,7 +213,12 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         if "timeHome" in data:
             self.config["timeHome"] = data["timeHome"]
         
-        # Request refresh
+        # Trigger immediate optimization
+        await self.async_request_refresh()
+    
+    async def force_optimization(self) -> None:
+        """Force immediate optimization."""
+        _LOGGER.info("Forcing immediate optimization")
         await self.async_request_refresh()
     
     def _build_30min_temperature_schedule(self) -> dict:
