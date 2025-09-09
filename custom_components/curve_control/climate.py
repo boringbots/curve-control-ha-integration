@@ -85,9 +85,7 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
         self._current_temperature = None
         self._hvac_action = HVACAction.IDLE
         
-        # If we have a linked thermostat, try to get its current state
-        if self._thermostat_entity_id:
-            self._sync_with_thermostat()
+        # We'll sync with thermostat after entity is added to hass
     
     @callback
     def _sync_with_thermostat(self) -> None:
@@ -120,6 +118,14 @@ class CurveControlThermostat(CoordinatorEntity, ClimateEntity):
                 self._hvac_action = HVACAction.IDLE
             elif hvac_action == "off":
                 self._hvac_action = HVACAction.OFF
+    
+    async def async_added_to_hass(self) -> None:
+        """Run when entity is added to hass."""
+        await super().async_added_to_hass()
+        
+        # Now sync with thermostat since hass is available
+        if self._thermostat_entity_id:
+            self._sync_with_thermostat()
     
     @property
     def current_temperature(self) -> float | None:

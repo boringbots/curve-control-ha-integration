@@ -155,7 +155,7 @@ class CurveControlStatusSensor(CurveControlBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return entity specific state attributes."""
         attrs = {
-            "last_update": self.coordinator.last_update_time.isoformat() if self.coordinator.last_update_time else None,
+            "last_update": self.coordinator.last_update_success_time.isoformat() if self.coordinator.last_update_success_time else None,
             "update_success": self.coordinator.last_update_success,
         }
         

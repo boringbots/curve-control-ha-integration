@@ -51,10 +51,10 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         test_data = {
             "homeSize": data[CONF_HOME_SIZE],
             "homeTemperature": data[CONF_TARGET_TEMP],
-            "location": data[CONF_LOCATION],
+            "location": int(data[CONF_LOCATION]),
             "timeAway": data[CONF_TIME_AWAY],
             "timeHome": data[CONF_TIME_HOME],
-            "savingsLevel": data[CONF_SAVINGS_LEVEL],
+            "savingsLevel": int(data[CONF_SAVINGS_LEVEL]),
         }
         
         async with session.post(
@@ -76,7 +76,9 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         raise InvalidResponse(f"Unexpected error: {err}")
     
     # Return info that you want to store in the config entry
-    return {"title": f"Curve Control - {LOCATIONS[data[CONF_LOCATION]]}"}
+    # Convert location to int since form sends it as string
+    location_key = int(data[CONF_LOCATION])
+    return {"title": f"Curve Control - {LOCATIONS[location_key]}"}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
