@@ -72,7 +72,7 @@ class CurveControlSavingsSensor(CurveControlBaseSensor):
     """Sensor for energy savings information."""
     
     _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_native_unit_of_measurement = "$"
     _attr_icon = "mdi:piggy-bank"
     
@@ -154,8 +154,9 @@ class CurveControlStatusSensor(CurveControlBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return entity specific state attributes."""
+        from datetime import datetime
         attrs = {
-            "last_update": self.coordinator.last_update_success_time.isoformat() if self.coordinator.last_update_success_time else None,
+            "last_update": datetime.now().isoformat() if self.coordinator.last_update_success else None,
             "update_success": self.coordinator.last_update_success,
         }
         
