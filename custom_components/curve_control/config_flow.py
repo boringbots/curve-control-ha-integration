@@ -105,7 +105,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Create unique ID based on location and thermostat
                 unique_id = f"{user_input[CONF_LOCATION]}_{user_input.get(CONF_THERMOSTAT_ENTITY, 'default')}"
                 await self.async_set_unique_id(unique_id)
-                self._abort_if_unique_id_configured()
+                self._abort_if_unique_id_configured(updates=user_input)
                 
                 return self.async_create_entry(title=info["title"], data=user_input)
             
