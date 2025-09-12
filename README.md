@@ -153,7 +153,7 @@ cards:
           type: line
           color: '#FF6384'
           stroke_width: 2
-          stroke_dasharray: 5
+          stroke_dash_array: 5
           yaxis_id: temperature
         - entity: sensor.curve_control_temperature_schedule_chart
           attribute: low_limits
@@ -161,7 +161,7 @@ cards:
           type: line
           color: '#36A2EB'
           stroke_width: 2
-          stroke_dasharray: 5
+          stroke_dash_array: 5
           yaxis_id: temperature
         - entity: sensor.curve_control_temperature_schedule_chart
           attribute: electricity_prices

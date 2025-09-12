@@ -95,36 +95,57 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_register_custom_card(hass: HomeAssistant) -> None:
-    """Provide instructions for custom card installation."""
+    """Register and set up the custom card for the frontend."""
     try:
         import pathlib
+        import shutil
+        
         integration_dir = pathlib.Path(__file__).parent
         
-        # Check if user has already installed the card
-        user_card_path = pathlib.Path(hass.config.path("www", "curve_control", "curve-control-card.js"))
+        # Ensure www directory exists
+        www_dir = pathlib.Path(hass.config.path("www"))
+        www_dir.mkdir(exist_ok=True)
         
-        if user_card_path.exists():
-            _LOGGER.info("✅ Custom card found at: /local/curve_control/curve-control-card.js")
-            _LOGGER.info("🔧 Add this card to your dashboard with type: custom:curve-control-card")
-        else:
-            # Provide installation instructions
-            _LOGGER.info("📋 CUSTOM CARD INSTALLATION REQUIRED:")
-            _LOGGER.info("1️⃣  Create directory: config/www/curve_control/")
-            _LOGGER.info("2️⃣  Copy curve-control-card.js from the integration to that directory")
-            _LOGGER.info("3️⃣  Add this resource to Settings > Dashboards > Resources:")
+        # Create curve_control subdirectory
+        card_dir = www_dir / "curve_control"
+        card_dir.mkdir(exist_ok=True)
+        
+        # Copy card file from integration to www directory
+        integration_card_path = integration_dir / "curve-control-card.js"
+        user_card_path = card_dir / "curve-control-card.js"
+        
+        if integration_card_path.exists():
+            # Copy the file
+            shutil.copy2(integration_card_path, user_card_path)
+            _LOGGER.info(f"✅ Custom card installed to: {user_card_path}")
+            
+            # Register the frontend resource
+            try:
+                frontend.async_register_built_in_panel(
+                    hass,
+                    "curve_control",
+                    "Curve Control",
+                    "mdi:chart-line"
+                )
+                _LOGGER.info("✅ Frontend panel registered")
+            except Exception as panel_err:
+                _LOGGER.debug(f"Panel registration not needed: {panel_err}")
+            
+            # Log instructions for users
+            _LOGGER.info("🔧 TO USE THE CUSTOM CARD:")
+            _LOGGER.info("1️⃣  Go to Settings > Dashboards > Resources")
+            _LOGGER.info("2️⃣  Click 'Add Resource' and enter:")
             _LOGGER.info("     URL: /local/curve_control/curve-control-card.js")
             _LOGGER.info("     Type: JavaScript Module")
-            _LOGGER.info("4️⃣  Add card to dashboard with type: custom:curve-control-card")
+            _LOGGER.info("3️⃣  Add card to dashboard with type: custom:curve-control-card")
+            _LOGGER.info("4️⃣  Configure card entity: sensor.curve_control_status")
             
-            # Check if the card file exists in integration directory
-            integration_card_path = integration_dir / "curve-control-card.js"
-            if integration_card_path.exists():
-                _LOGGER.info(f"💡 Card source file available at: {integration_card_path}")
-            else:
-                _LOGGER.warning("⚠️  Card source file not found in integration directory")
+        else:
+            _LOGGER.warning("⚠️  Card source file not found in integration directory")
+            _LOGGER.info("Expected file: curve-control-card.js in the integration folder")
             
     except Exception as err:
-        _LOGGER.warning(f"Error checking custom card setup: {err}")
+        _LOGGER.error(f"Error setting up custom card: {err}")
 
 
 
