@@ -92,10 +92,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_register_custom_card(hass: HomeAssistant) -> None:
     """Register the custom Lovelace card."""
     try:
-        # Get the path to our custom card
-        card_path = hass.config.path("custom_components", "curve_control", "www", "curve-control-card.js")
-        
-        # Check if file exists, if not use the one from the integration
         import pathlib
         integration_dir = pathlib.Path(__file__).parent
         www_dir = integration_dir / "www"
@@ -103,30 +99,28 @@ async def async_register_custom_card(hass: HomeAssistant) -> None:
         # Ensure www directory exists
         www_dir.mkdir(exist_ok=True)
         
-        # Register static path for the card
-        hass.http.register_static_path(
-            "/hacsfiles/curve_control/curve-control-card.js",
-            str(www_dir / "curve-control-card.js"),
-            cache_headers=False
-        )
-        
-        # Add as lovelace resource
-        if "lovelace" not in hass.data:
-            hass.data["lovelace"] = {}
-        if "resources" not in hass.data["lovelace"]:
-            hass.data["lovelace"]["resources"] = []
-            
-        resource = {
-            "url": "/hacsfiles/curve_control/curve-control-card.js",
-            "type": "module"
-        }
-        
-        if resource not in hass.data["lovelace"]["resources"]:
-            hass.data["lovelace"]["resources"].append(resource)
+        # Modern Home Assistant static path registration
+        if hasattr(hass.http, 'register_static_path'):
+            hass.http.register_static_path(
+                "/hacsfiles/curve_control/curve-control-card.js",
+                str(www_dir / "curve-control-card.js"),
+                cache_headers=False
+            )
+        else:
+            # Fallback for newer HA versions - use the frontend.add_extra_resource
+            from homeassistant.components import frontend
+            frontend.async_register_built_in_panel(
+                hass,
+                "curve_control",
+                "Curve Control",
+                "mdi:home-thermometer"
+            )
         
         _LOGGER.info("Registered Curve Control custom card")
     except Exception as err:
         _LOGGER.warning(f"Could not register custom card: {err}")
+        # Don't fail the entire integration if card registration fails
+        pass
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
