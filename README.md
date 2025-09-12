@@ -69,51 +69,26 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 
 ## Dashboard Cards
 
-### Basic Dashboard (No Extra Installation Required)
+### Basic Dashboard 
 
-Create a simple dashboard card instantly by copying this YAML:
-
-```yaml
-type: vertical-stack
-cards:
-  - type: entities
-    title: Curve Control Energy Optimizer  
-    entities:
-      - entity: switch.curve_control_energy_optimizer_use_optimized_temperatures
-        name: Use Optimized Schedule
-        icon: mdi:chart-line
-      - entity: sensor.curve_control_energy_optimizer_status
-        name: Status
-  - type: horizontal-stack
-    cards:
-      - type: entity
-        entity: sensor.curve_control_energy_optimizer_savings
-        name: Cost Savings
-        icon: mdi:currency-usd
-      - type: entity
-        entity: sensor.curve_control_energy_optimizer_co2_avoided
-        name: CO2 Avoided
-        icon: mdi:molecule-co2
-      - type: entity
-        entity: sensor.curve_control_energy_optimizer_next_setpoint
-        name: Next Target
-        icon: mdi:thermometer
-```
+A basic layout shows automatically.
 
 ### Advanced Graph (Requires ApexCharts from HACS)
 
-For a visual temperature schedule graph, first install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) via HACS, then add:
+For an added visual for the temperature schedule, first install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) via HACS, then add:
 
 ```yaml
 type: custom:apexcharts-card
 header:
   show: true
-  title: 24-Hour Temperature Schedule
+  title: Curve Control - Optimized Temperatures
 graph_span: 24h
+span:
+  start: day
 yaxis:
   - id: temp
-    min: 65
-    max: 80
+    min: 0
+    max: 100
     decimals: 1
     apex_config:
       title:
@@ -121,13 +96,13 @@ yaxis:
   - id: price
     opposite: true
     min: 0
-    max: 0.6
-    decimals: 2
+    max: 1
+    decimals: 1
     apex_config:
       title:
         text: Price ($/kWh)
 series:
-  - entity: sensor.curve_control_energy_optimizer_schedule_chart
+  - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
     name: Target Temperature
     yaxis_id: temp
     data_generator: |
@@ -143,8 +118,46 @@ series:
       });
     type: line
     color: green
-    stroke_width: 3
-  - entity: sensor.curve_control_energy_optimizer_schedule_chart
+    stroke_width: 2
+  - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
+    name: High Limit
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const high = data.datasets[1].data;
+      return high.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: blue
+    stroke_width: 2
+    stroke_dash: 5
+    opacity: 0.7
+  - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
+    name: Low Limit
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const low = data.datasets[2].data;
+      return low.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: blue
+    stroke_width: 2
+    stroke_dash: 5
+    opacity: 0.7
+  - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
     name: Electricity Price
     yaxis_id: price
     data_generator: |
@@ -160,12 +173,13 @@ series:
       });
     type: area
     color: orange
+    stroke_width: 2
     opacity: 0.3
 ```
 
 ### Interactive Custom Card (Optional)
 
-For an advanced interactive card with settings controls and built-in graphs, search for **"Curve Control Card"** in HACS Frontend section (separate installation).
+For an advanced interactive card with settings controls and built-in graphs, search for **"Curve Control Card"** in HACS Frontend section (separate installation). Or pull from: https://github.com/boringbots/curve-control-card
 
 ## How It Works
 
