@@ -67,112 +67,105 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 - `curve_control.update_schedule` - Update optimization parameters
 - `curve_control.force_optimization` - Force immediate recalculation
 
-## Dashboard Options
+## Dashboard Cards
 
-### Option 1: Custom Interactive Card (Advanced)
+### Basic Dashboard (No Extra Installation Required)
 
-For the full interactive experience with settings controls, you can install the custom JavaScript card:
-
-1. Copy `custom_components/curve_control/curve-control-card.js` to `config/www/curve_control/curve-control-card.js`
-2. Go to Settings → Dashboards → Resources
-3. Add resource: `/local/curve_control/curve-control-card.js` (Type: JavaScript Module)
-4. Edit your dashboard and search for "Curve Control Card"
-
-The custom card includes:
-- **Toggle Switch** - Enable/disable optimization with one click
-- **Status Display** - Current savings and optimization status  
-- **Temperature Graph** - Visual 24-hour schedule vs electricity prices
-- **Settings Tabs** - Basic and detailed schedule configuration
-
-### Option 2: Simple Copy-Paste Card (Recommended)
-
-Create a dashboard card instantly by copying this YAML code:
+Create a simple dashboard card instantly by copying this YAML:
 
 ```yaml
 type: vertical-stack
 cards:
   - type: entities
-    title: Curve Control Energy Optimizer
+    title: Curve Control Energy Optimizer  
     entities:
       - entity: switch.curve_control_use_optimized_temperatures
         name: Use Optimized Schedule
-        icon: mdi:thermostat-auto
-      - type: divider
+        icon: mdi:chart-line
       - entity: sensor.curve_control_status
         name: Status
-        icon: mdi:information-outline
-      - entity: sensor.curve_control_savings
-        name: Daily Savings
+  - type: horizontal-stack
+    cards:
+      - type: entity
+        entity: sensor.curve_control_savings
+        name: Cost Savings
         icon: mdi:currency-usd
-      - entity: sensor.curve_control_co2_avoided
+      - type: entity
+        entity: sensor.curve_control_co2_avoided
         name: CO2 Avoided
-        icon: mdi:leaf
-      - entity: sensor.curve_control_next_setpoint
-        name: Next Temperature
+        icon: mdi:molecule-co2
+      - type: entity
+        entity: sensor.curve_control_next_setpoint
+        name: Next Target
         icon: mdi:thermometer
-      - entity: sensor.curve_control_current_interval
-        name: Current Interval
-        icon: mdi:clock-outline
-  - type: conditional
-    conditions:
-      - entity: sensor.curve_control_temperature_schedule_chart
-        state_not: unavailable
-    card:
-      type: custom:apexcharts-card
-      header:
-        show: true
-        title: Temperature Schedule vs Electricity Prices
-      graph_span: 24h
-      span:
-        start: day
-      yaxis:
-        - id: temperature
-          min: 65
-          max: 80
-          apex_config:
-            title:
-              text: Temperature (°F)
-        - id: price
-          opposite: true
-          min: 0
-          max: 0.6
-          apex_config:
-            title:
-              text: Price ($/kWh)
-      series:
-        - entity: sensor.curve_control_temperature_schedule_chart
-          attribute: target_temperatures
-          name: Target Temperature
-          type: line
-          color: '#4CAF50'
-          stroke_width: 3
-          yaxis_id: temperature
-        - entity: sensor.curve_control_temperature_schedule_chart
-          attribute: high_limits
-          name: High Limit
-          type: line
-          color: '#FF6384'
-          stroke_width: 2
-          stroke_dash_array: 5
-          yaxis_id: temperature
-        - entity: sensor.curve_control_temperature_schedule_chart
-          attribute: low_limits
-          name: Low Limit
-          type: line
-          color: '#36A2EB'
-          stroke_width: 2
-          stroke_dash_array: 5
-          yaxis_id: temperature
-        - entity: sensor.curve_control_temperature_schedule_chart
-          attribute: electricity_prices
-          name: Electricity Price
-          type: column
-          color: '#FF9800'
-          opacity: 0.3
-          yaxis_id: price
 ```
 
-**Note**: This manual card requires the [ApexCharts Card](https://github.com/RomRider/apexcharts-card) from HACS for the temperature schedule graph. If you don't have ApexCharts installed, remove the conditional card section and use only the entities card.
+### Advanced Graph (Requires ApexCharts from HACS)
+
+For a visual temperature schedule graph, first install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) via HACS, then add:
+
+```yaml
+type: custom:apexcharts-card
+header:
+  show: true
+  title: 24-Hour Temperature Schedule
+graph_span: 24h
+yaxis:
+  - id: temp
+    min: 65
+    max: 80
+    decimals: 1
+    apex_config:
+      title:
+        text: Temperature (°F)
+  - id: price
+    opposite: true
+    min: 0
+    max: 0.6
+    decimals: 2
+    apex_config:
+      title:
+        text: Price ($/kWh)
+series:
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Target Temperature
+    yaxis_id: temp
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const target = data.datasets[0].data;
+      return target.map((temp, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), temp];
+      });
+    type: line
+    color: green
+    stroke_width: 3
+  - entity: sensor.curve_control_temperature_schedule_chart
+    name: Electricity Price
+    yaxis_id: price
+    data_generator: |
+      const data = entity.attributes.graph_data;
+      if (!data || !data.datasets) return [];
+      const prices = data.datasets[3].data;
+      return prices.map((price, i) => {
+        const hour = Math.floor(i / 2);
+        const minute = (i % 2) * 30;
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        return [time.getTime(), price];
+      });
+    type: area
+    color: orange
+    opacity: 0.3
+```
+
+### Interactive Custom Card (Optional)
+
+For an advanced interactive card with settings controls and built-in graphs, search for **"Curve Control Card"** in HACS Frontend section (separate installation).
 
 ## How It Works
 

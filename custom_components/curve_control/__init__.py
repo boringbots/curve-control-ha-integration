@@ -14,7 +14,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.components import frontend
 
 from .const import (
     DOMAIN,
@@ -42,9 +41,6 @@ PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.SENSOR, Platform.SWITCH]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Curve Control from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    
-    # Register custom card
-    await async_register_custom_card(hass)
     
     # Create the data coordinator
     coordinator = CurveControlCoordinator(hass, entry)
@@ -93,64 +89,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     return True
 
-
-async def async_register_custom_card(hass: HomeAssistant) -> None:
-    """Register and set up the custom card for the frontend."""
-    try:
-        import pathlib
-        import asyncio
-        from homeassistant.helpers.storage import async_create_path
-        
-        integration_dir = pathlib.Path(__file__).parent
-        
-        # Ensure www directory exists
-        www_dir = pathlib.Path(hass.config.path("www"))
-        card_dir = www_dir / "curve_control"
-        
-        # Create directories using async-safe method
-        await async_create_path(card_dir)
-        
-        # File paths
-        integration_card_path = integration_dir / "curve-control-card.js"
-        user_card_path = card_dir / "curve-control-card.js"
-        
-        if integration_card_path.exists():
-            # Use async file operations
-            async def copy_file():
-                try:
-                    # Read source file
-                    content = await hass.async_add_executor_job(
-                        integration_card_path.read_text, "utf-8"
-                    )
-                    # Write to destination
-                    await hass.async_add_executor_job(
-                        user_card_path.write_text, content, "utf-8"
-                    )
-                    return True
-                except Exception as e:
-                    _LOGGER.error(f"Failed to copy card file: {e}")
-                    return False
-            
-            if await copy_file():
-                _LOGGER.info(f"✅ Custom card installed to: {user_card_path}")
-                
-                # Log instructions for users
-                _LOGGER.info("🔧 TO USE THE CUSTOM CARD:")
-                _LOGGER.info("1️⃣  Go to Settings > Dashboards > Resources")
-                _LOGGER.info("2️⃣  Click 'Add Resource' and enter:")
-                _LOGGER.info("     URL: /local/curve_control/curve-control-card.js")
-                _LOGGER.info("     Type: JavaScript Module")
-                _LOGGER.info("3️⃣  Add card to dashboard with type: custom:curve-control-card")
-                _LOGGER.info("4️⃣  Configure card entity: sensor.curve_control_status")
-            else:
-                _LOGGER.error("Failed to install custom card")
-            
-        else:
-            _LOGGER.warning("⚠️  Card source file not found in integration directory")
-            _LOGGER.info("Expected file: curve-control-card.js in the integration folder")
-            
-    except Exception as err:
-        _LOGGER.error(f"Error setting up custom card: {err}")
 
 
 
