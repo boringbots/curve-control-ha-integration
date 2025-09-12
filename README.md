@@ -67,27 +67,26 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 - `curve_control.update_schedule` - Update optimization parameters
 - `curve_control.force_optimization` - Force immediate recalculation
 
-## Dashboard
+## Dashboard Options
 
-The integration automatically creates a custom dashboard card with:
+### Option 1: Custom Interactive Card (Advanced)
 
+For the full interactive experience with settings controls, you can install the custom JavaScript card:
+
+1. Copy `custom_components/curve_control/curve-control-card.js` to `config/www/curve_control/curve-control-card.js`
+2. Go to Settings → Dashboards → Resources
+3. Add resource: `/local/curve_control/curve-control-card.js` (Type: JavaScript Module)
+4. Edit your dashboard and search for "Curve Control Card"
+
+The custom card includes:
 - **Toggle Switch** - Enable/disable optimization with one click
 - **Status Display** - Current savings and optimization status  
-- **Temperature Graph** - Visual 24-hour schedule showing target temperatures vs electricity prices
-- **Current Info** - Next setpoint and time period details
+- **Temperature Graph** - Visual 24-hour schedule vs electricity prices
+- **Settings Tabs** - Basic and detailed schedule configuration
 
-After installing the integration, you can add the Curve Control card to your dashboard:
+### Option 2: Simple Copy-Paste Card (Recommended)
 
-1. Edit your dashboard
-2. Click "Add Card"
-3. Search for "Curve Control Card" 
-4. Configure and add to your dashboard
-
-The card will automatically update with your optimization schedule and provides full control over the system.
-
-## Manual Dashboard Card
-
-If you prefer not to install the custom JavaScript card, you can create a manual dashboard card by copying this YAML code:
+Create a dashboard card instantly by copying this YAML code:
 
 ```yaml
 type: vertical-stack
