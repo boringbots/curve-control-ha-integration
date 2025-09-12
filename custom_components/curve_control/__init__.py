@@ -46,9 +46,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register custom card
     await async_register_custom_card(hass)
     
-    # Also register the card as a frontend resource
-    await async_register_frontend_resource(hass)
-    
     # Create the data coordinator
     coordinator = CurveControlCoordinator(hass, entry)
     
@@ -106,84 +103,31 @@ async def async_register_custom_card(hass: HomeAssistant) -> None:
         
         # Ensure www directory exists
         www_dir.mkdir(exist_ok=True)
+        card_path = www_dir / "curve-control-card.js"
         
-        # Use the modern frontend.async_register_built_in_panel approach
+        if not card_path.exists():
+            _LOGGER.warning("Custom card file not found at www/curve-control-card.js")
+            return
+        
+        # Register static path for serving the card file
         try:
-            from homeassistant.components.frontend import async_register_built_in_panel
-            from homeassistant.components import frontend
+            hass.http.register_static_path(
+                "/hacsfiles/curve_control",
+                str(www_dir),
+                cache_headers=False
+            )
+            _LOGGER.info("✅ Custom card available at: /hacsfiles/curve_control/curve-control-card.js")
+            _LOGGER.info("📝 To use the card, add this resource to your Lovelace config:")
+            _LOGGER.info("   URL: /hacsfiles/curve_control/curve-control-card.js")
+            _LOGGER.info("   Type: JavaScript Module")
             
-            # Register the static path for serving the JS file
-            card_path = www_dir / "curve-control-card.js"
-            if card_path.exists():
-                # Register using the newer method
-                hass.http.register_static_path(
-                    "/hacsfiles/curve_control",
-                    str(www_dir),
-                    cache_headers=False
-                )
-                
-                # Add to frontend resources
-                if hasattr(frontend, 'async_register_built_in_panel'):
-                    await async_register_built_in_panel(
-                        hass,
-                        "curve_control", 
-                        "Curve Control",
-                        "mdi:home-thermometer"
-                    )
-                
-                _LOGGER.info("Successfully registered Curve Control custom card")
-                return
-            else:
-                _LOGGER.warning("Custom card file not found at www/curve-control-card.js")
-                
-        except Exception as e:
-            _LOGGER.debug(f"Modern registration failed: {e}")
-            # Try direct HTTP registration
-            try:
-                card_path = www_dir / "curve-control-card.js"
-                if card_path.exists():
-                    hass.http.register_static_path(
-                        "/hacsfiles/curve_control",
-                        str(www_dir),
-                        cache_headers=False
-                    )
-                    _LOGGER.info("Registered Curve Control card via direct HTTP path")
-                    return
-            except Exception as e2:
-                _LOGGER.debug(f"Direct HTTP registration also failed: {e2}")
-        
-        # Final fallback - just log availability
-        card_path = www_dir / "curve-control-card.js" 
-        if card_path.exists():
-            _LOGGER.info("Curve Control card file available - manual registration required")
-        else:
-            _LOGGER.warning("Custom card file not found")
+        except Exception as err:
+            _LOGGER.warning(f"Could not register static path for custom card: {err}")
+            _LOGGER.info("ℹ️  Manual card installation required")
             
     except Exception as err:
-        _LOGGER.warning(f"Could not register custom card: {err}")
-        # Don't fail the entire integration if card registration fails
-        pass
+        _LOGGER.warning(f"Error setting up custom card: {err}")
 
-
-async def async_register_frontend_resource(hass: HomeAssistant) -> None:
-    """Register the custom card as a frontend resource."""
-    try:
-        from homeassistant.components.frontend import add_extra_js_url
-        
-        # Add the card JavaScript as a frontend resource
-        js_url = "/hacsfiles/curve_control/curve-control-card.js"
-        
-        if hasattr(hass.components.frontend, 'add_extra_js_url'):
-            add_extra_js_url(hass, js_url)
-            _LOGGER.info(f"Added frontend resource: {js_url}")
-        else:
-            # Try alternative method
-            if hasattr(hass.http, 'register_static_path'):
-                # Resource is already registered via static path
-                _LOGGER.info("Frontend resource available via static path")
-            
-    except Exception as err:
-        _LOGGER.debug(f"Could not register frontend resource: {err}")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
