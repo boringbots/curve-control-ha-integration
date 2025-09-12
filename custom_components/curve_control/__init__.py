@@ -32,6 +32,7 @@ from .const import (
     HEAT_30MIN,
     DEADBAND_OFFSET,
 )
+from .thermal_learning import ThermalLearningManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +48,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Create the data coordinator
     coordinator = CurveControlCoordinator(hass, entry)
+    
+    # Set up thermal learning if thermostat is configured
+    if coordinator.thermal_learning:
+        await coordinator.thermal_learning.async_setup()
     
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
@@ -126,6 +131,13 @@ async def async_register_custom_card(hass: HomeAssistant) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    # Clean up thermal learning
+    data = hass.data[DOMAIN].get(entry.entry_id)
+    if data:
+        coordinator = data.get("coordinator")
+        if coordinator and coordinator.thermal_learning:
+            await coordinator.thermal_learning.async_cleanup()
+    
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
     
@@ -158,10 +170,17 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         self.heat_up_rate = HEAT_30MIN  # Default value for 30-min intervals
         self.cool_down_rate = COOL_30MIN  # Default value for 30-min intervals
         
+        # Initialize thermal learning
+        self.thermal_learning = None
+        thermostat_entity = entry.data.get(CONF_THERMOSTAT_ENTITY)
+        if thermostat_entity:
+            self.thermal_learning = ThermalLearningManager(hass, thermostat_entity)
+        
         # Store daily schedule - no automatic polling
         self._daily_schedule = None
         self._schedule_date = None
         self._midnight_listener = None
+        self._custom_temperature_schedule = None  # For detailed frontend schedules
         self.optimization_enabled = True  # Flag for optimization toggle
         
         super().__init__(
@@ -206,8 +225,21 @@ class CurveControlCoordinator(DataUpdateCoordinator):
                     if current_temp:
                         self.config["homeTemperature"] = current_temp
             
-            # Generate 30-minute temperature schedule
-            schedule_data = self._build_30min_temperature_schedule()
+            # Update thermal rates from learning if available
+            if self.thermal_learning:
+                learned_heat_rate, learned_cool_rate = self.thermal_learning.get_thermal_rates_with_fallback()
+                self.heat_up_rate = learned_heat_rate
+                self.cool_down_rate = learned_cool_rate
+                
+                _LOGGER.debug(f"Using thermal rates - Heat: {self.heat_up_rate:.4f}, Cool: {self.cool_down_rate:.4f}")
+            
+            # Generate 30-minute temperature schedule (custom or basic)
+            if self._custom_temperature_schedule:
+                schedule_data = self._custom_temperature_schedule
+                _LOGGER.info("Using custom temperature schedule from frontend")
+            else:
+                schedule_data = self._build_30min_temperature_schedule()
+                _LOGGER.info("Using basic temperature schedule")
             
             # Prepare request with schedule data
             request_data = {
@@ -248,15 +280,27 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         """Update the schedule configuration and trigger immediate optimization."""
         _LOGGER.info("User updated preferences - triggering optimization")
         
-        # Update configuration
+        # Update configuration from frontend data
         if "homeSize" in data:
             self.config["homeSize"] = data["homeSize"]
+        if "homeTemperature" in data:
+            self.config["homeTemperature"] = data["homeTemperature"]
+        if "location" in data:
+            self.config["location"] = data["location"]
         if "savingsLevel" in data:
             self.config["savingsLevel"] = data["savingsLevel"]
         if "timeAway" in data:
             self.config["timeAway"] = data["timeAway"]
         if "timeHome" in data:
             self.config["timeHome"] = data["timeHome"]
+        
+        # Store custom temperature schedule if provided (for detailed mode)
+        if "temperatureSchedule" in data:
+            self._custom_temperature_schedule = data["temperatureSchedule"]
+            _LOGGER.info("Custom temperature schedule received from frontend")
+        else:
+            # Clear custom schedule for basic mode
+            self._custom_temperature_schedule = None
         
         # Trigger immediate optimization
         await self.async_request_refresh()

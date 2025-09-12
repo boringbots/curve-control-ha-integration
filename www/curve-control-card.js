@@ -5,6 +5,7 @@ class CurveControlCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
+    this.currentTab = 'display';
   }
 
   setConfig(config) {
@@ -81,27 +82,180 @@ class CurveControlCard extends HTMLElement {
           ha-switch {
             --mdc-theme-secondary: var(--switch-checked-color);
           }
+          .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--divider-color);
+            margin-bottom: 16px;
+          }
+          .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--secondary-text-color);
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+          }
+          .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+          }
+          .tab-content {
+            display: none;
+          }
+          .tab-content.active {
+            display: block;
+          }
+          .input-group {
+            margin: 12px 0;
+          }
+          .input-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 4px;
+          }
+          .input-group input, .input-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--divider-color);
+            border-radius: 4px;
+            background: var(--card-background-color);
+            color: var(--primary-text-color);
+          }
+          .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+          .detailed-schedule {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+          }
+          .hour-input {
+            text-align: center;
+            font-size: 12px;
+          }
+          .hour-label {
+            font-size: 10px;
+            text-align: center;
+            color: var(--secondary-text-color);
+            margin-bottom: 4px;
+          }
+          .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            justify-content: flex-end;
+          }
+          .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+          }
+          .btn-primary {
+            background: var(--primary-color);
+            color: white;
+          }
+          .btn-secondary {
+            background: var(--secondary-background-color);
+            color: var(--primary-text-color);
+            border: 1px solid var(--divider-color);
+          }
         </style>
         <ha-card class="card">
           <div class="header">Curve Control Energy Optimizer</div>
-          <div class="toggle-row">
-            <span class="toggle-label">Use Optimized Schedule</span>
-            <ha-switch id="optimization-toggle"></ha-switch>
+          
+          <div class="tabs">
+            <button class="tab active" data-tab="display">Dashboard</button>
+            <button class="tab" data-tab="basic">Basic Settings</button>
+            <button class="tab" data-tab="detailed">Detailed Schedule</button>
           </div>
-          <div class="status-row">
-            <div class="status-item">
-              <div class="status-value" id="savings-value">--</div>
-              <div class="status-label">Savings</div>
+
+          <!-- Dashboard Tab -->
+          <div class="tab-content active" id="display-tab">
+            <div class="toggle-row">
+              <span class="toggle-label">Use Optimized Schedule</span>
+              <ha-switch id="optimization-toggle"></ha-switch>
             </div>
-            <div class="status-item">
-              <div class="status-value" id="status-value">--</div>
-              <div class="status-label">Status</div>
+            <div class="status-row">
+              <div class="status-item">
+                <div class="status-value" id="savings-value">--</div>
+                <div class="status-label">Savings</div>
+              </div>
+              <div class="status-item">
+                <div class="status-value" id="status-value">--</div>
+                <div class="status-label">Status</div>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="schedule-chart"></canvas>
+              <div id="no-data" class="no-data" style="display:none;">
+                No schedule data available. Optimization will run at midnight or when you update preferences.
+              </div>
             </div>
           </div>
-          <div class="chart-container">
-            <canvas id="schedule-chart"></canvas>
-            <div id="no-data" class="no-data" style="display:none;">
-              No schedule data available. Optimization will run at midnight or when you update preferences.
+
+          <!-- Basic Settings Tab -->
+          <div class="tab-content" id="basic-tab">
+            <div class="input-group">
+              <label>Home Size (sq ft)</label>
+              <input type="number" id="home-size" min="500" max="10000" value="2000">
+            </div>
+            <div class="input-group">
+              <label>Target Temperature (°F)</label>
+              <input type="number" id="target-temp" min="65" max="80" value="72" step="0.5">
+            </div>
+            <div class="input-group">
+              <label>Location/Rate Plan</label>
+              <select id="location">
+                <option value="1">San Diego Gas & Electric TOU-DR1</option>
+                <option value="2">San Diego Gas & Electric TOU-DR2</option>
+                <option value="3">San Diego Gas & Electric TOU-DR-P</option>
+                <option value="4">San Diego Gas & Electric TOU-ELEC</option>
+                <option value="5">San Diego Gas & Electric Standard DR</option>
+                <option value="6">New Hampshire TOU Whole House</option>
+                <option value="7">Texas XCEL Time-Of-Use</option>
+              </select>
+            </div>
+            <div class="input-row">
+              <div class="input-group">
+                <label>Time Away</label>
+                <input type="time" id="time-away" value="08:00">
+              </div>
+              <div class="input-group">
+                <label>Time Home</label>
+                <input type="time" id="time-home" value="17:00">
+              </div>
+            </div>
+            <div class="input-group">
+              <label>Savings Level</label>
+              <select id="savings-level">
+                <option value="1">Low (2°F variation)</option>
+                <option value="2" selected>Medium (6°F variation)</option>
+                <option value="3">High (12°F variation)</option>
+              </select>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-secondary" id="reset-basic">Reset</button>
+              <button class="btn btn-primary" id="apply-basic">Apply Settings</button>
+            </div>
+          </div>
+
+          <!-- Detailed Schedule Tab -->
+          <div class="tab-content" id="detailed-tab">
+            <div class="input-group">
+              <label>Custom Temperature Schedule (24 hours)</label>
+              <div class="detailed-schedule" id="detailed-schedule">
+                <!-- Will be populated by JavaScript -->
+              </div>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-secondary" id="reset-detailed">Reset to Defaults</button>
+              <button class="btn btn-primary" id="apply-detailed">Apply Custom Schedule</button>
             </div>
           </div>
         </ha-card>
@@ -109,6 +263,7 @@ class CurveControlCard extends HTMLElement {
     }
 
     this.updateCard();
+    this.setupEventListeners();
   }
 
   updateCard() {
@@ -123,11 +278,21 @@ class CurveControlCard extends HTMLElement {
     const toggle = this.shadowRoot.getElementById('optimization-toggle');
     if (toggle && switchEntity) {
       toggle.checked = switchEntity.state === 'on';
-      toggle.addEventListener('click', () => {
-        this._hass.callService('switch', switchEntity.state === 'on' ? 'turn_off' : 'turn_on', {
+      
+      // Remove existing listeners to prevent duplication
+      if (toggle._curveControlHandler) {
+        toggle.removeEventListener('click', toggle._curveControlHandler);
+      }
+      
+      // Add new handler
+      toggle._curveControlHandler = () => {
+        const currentState = switchEntity.state === 'on';
+        this._hass.callService('switch', currentState ? 'turn_off' : 'turn_on', {
           entity_id: 'switch.curve_control_use_optimized_temperatures'
         });
-      });
+      };
+      
+      toggle.addEventListener('click', toggle._curveControlHandler);
     }
 
     // Update savings
@@ -186,14 +351,72 @@ class CurveControlCard extends HTMLElement {
     ctx.lineTo(canvas.width - padding, canvas.height - padding);
     ctx.stroke();
 
-    // Draw temperature line
+    // Calculate temperature range from data
+    let minTemp = 65;
+    let maxTemp = 80;
+    
+    // Find actual min/max from all temperature datasets for better scaling
+    const allTempData = [];
+    if (datasets[0]?.data) allTempData.push(...datasets[0].data); // Target temps
+    if (datasets[1]?.data) allTempData.push(...datasets[1].data); // High limits  
+    if (datasets[2]?.data) allTempData.push(...datasets[2].data); // Low limits
+    
+    if (allTempData.length > 0) {
+      minTemp = Math.min(...allTempData) - 2;
+      maxTemp = Math.max(...allTempData) + 2;
+    }
+
+    // Draw high temperature limit line (red dashed)
+    if (datasets[1] && datasets[1].data) {
+      const highTemps = datasets[1].data;
+      ctx.strokeStyle = 'rgb(255, 99, 132)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      
+      highTemps.forEach((temp, i) => {
+        const x = padding + (i / (highTemps.length - 1)) * chartWidth;
+        const y = canvas.height - padding - ((temp - minTemp) / (maxTemp - minTemp)) * chartHeight;
+        
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset line dash
+    }
+
+    // Draw low temperature limit line (blue dashed)
+    if (datasets[2] && datasets[2].data) {
+      const lowTemps = datasets[2].data;
+      ctx.strokeStyle = 'rgb(54, 162, 235)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      
+      lowTemps.forEach((temp, i) => {
+        const x = padding + (i / (lowTemps.length - 1)) * chartWidth;
+        const y = canvas.height - padding - ((temp - minTemp) / (maxTemp - minTemp)) * chartHeight;
+        
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset line dash
+    }
+
+    // Draw optimized target temperature line (green solid)
     if (datasets[0] && datasets[0].data) {
       const temps = datasets[0].data;
-      const minTemp = 65;
-      const maxTemp = 80;
-      
       ctx.strokeStyle = '#4caf50';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.beginPath();
       
       temps.forEach((temp, i) => {
@@ -238,15 +461,249 @@ class CurveControlCard extends HTMLElement {
       ctx.fillText(`${i}:00`, x, canvas.height - padding + 20);
     }
     
-    // Y-axis labels
+    // Y-axis labels (dynamic based on actual temperature range)
     ctx.textAlign = 'right';
-    ctx.fillText('80°F', padding - 10, padding);
-    ctx.fillText('72°F', padding - 10, padding + chartHeight / 2);
-    ctx.fillText('65°F', padding - 10, canvas.height - padding);
+    ctx.fillText(`${maxTemp.toFixed(0)}°F`, padding - 10, padding);
+    ctx.fillText(`${((minTemp + maxTemp) / 2).toFixed(0)}°F`, padding - 10, padding + chartHeight / 2);
+    ctx.fillText(`${minTemp.toFixed(0)}°F`, padding - 10, canvas.height - padding);
+    
+    // Draw legend
+    const legendY = padding + 10;
+    const legendSpacing = 80;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    
+    // Optimized target line
+    ctx.strokeStyle = '#4caf50';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - 200, legendY);
+    ctx.lineTo(canvas.width - 185, legendY);
+    ctx.stroke();
+    ctx.fillStyle = '#4caf50';
+    ctx.fillText('Target', canvas.width - 180, legendY + 4);
+    
+    // High limit line
+    ctx.strokeStyle = 'rgb(255, 99, 132)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - 200, legendY + 15);
+    ctx.lineTo(canvas.width - 185, legendY + 15);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgb(255, 99, 132)';
+    ctx.fillText('High Limit', canvas.width - 180, legendY + 19);
+    
+    // Low limit line  
+    ctx.strokeStyle = 'rgb(54, 162, 235)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - 200, legendY + 30);
+    ctx.lineTo(canvas.width - 185, legendY + 30);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgb(54, 162, 235)';
+    ctx.fillText('Low Limit', canvas.width - 180, legendY + 34);
+  }
+
+  setupEventListeners() {
+    // Tab switching
+    const tabs = this.shadowRoot.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        this.switchTab(e.target.dataset.tab);
+      });
+    });
+
+    // Setup detailed schedule inputs
+    this.setupDetailedSchedule();
+
+    // Basic settings form handlers
+    const applyBasic = this.shadowRoot.getElementById('apply-basic');
+    if (applyBasic) {
+      applyBasic.addEventListener('click', () => this.handleBasicSettings());
+    }
+
+    const resetBasic = this.shadowRoot.getElementById('reset-basic');
+    if (resetBasic) {
+      resetBasic.addEventListener('click', () => this.resetBasicSettings());
+    }
+
+    // Detailed schedule handlers
+    const applyDetailed = this.shadowRoot.getElementById('apply-detailed');
+    if (applyDetailed) {
+      applyDetailed.addEventListener('click', () => this.handleDetailedSchedule());
+    }
+
+    const resetDetailed = this.shadowRoot.getElementById('reset-detailed');
+    if (resetDetailed) {
+      resetDetailed.addEventListener('click', () => this.resetDetailedSchedule());
+    }
+  }
+
+  switchTab(tabName) {
+    this.currentTab = tabName;
+    
+    // Update tab buttons
+    const tabs = this.shadowRoot.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      if (tab.dataset.tab === tabName) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+
+    // Update tab content
+    const contents = this.shadowRoot.querySelectorAll('.tab-content');
+    contents.forEach(content => {
+      if (content.id === `${tabName}-tab`) {
+        content.classList.add('active');
+      } else {
+        content.classList.remove('active');
+      }
+    });
+  }
+
+  setupDetailedSchedule() {
+    const container = this.shadowRoot.getElementById('detailed-schedule');
+    if (!container) return;
+
+    container.innerHTML = '';
+    
+    // Create inputs for each hour (24 hours, but we'll show high/low for each)
+    for (let hour = 0; hour < 24; hour++) {
+      const hourDiv = document.createElement('div');
+      
+      const label = document.createElement('div');
+      label.className = 'hour-label';
+      label.textContent = `${hour.toString().padStart(2, '0')}:00`;
+      
+      const highInput = document.createElement('input');
+      highInput.type = 'number';
+      highInput.className = 'hour-input';
+      highInput.placeholder = 'High';
+      highInput.min = '65';
+      highInput.max = '85';
+      highInput.step = '0.5';
+      highInput.value = '75';
+      highInput.id = `high-${hour}`;
+      
+      const lowInput = document.createElement('input');
+      lowInput.type = 'number';
+      lowInput.className = 'hour-input';
+      lowInput.placeholder = 'Low';
+      lowInput.min = '65';
+      lowInput.max = '85';
+      lowInput.step = '0.5';
+      lowInput.value = '69';
+      lowInput.id = `low-${hour}`;
+      
+      hourDiv.appendChild(label);
+      hourDiv.appendChild(highInput);
+      hourDiv.appendChild(lowInput);
+      container.appendChild(hourDiv);
+    }
+  }
+
+  handleBasicSettings() {
+    const homeSize = parseInt(this.shadowRoot.getElementById('home-size').value);
+    const targetTemp = parseFloat(this.shadowRoot.getElementById('target-temp').value);
+    const location = parseInt(this.shadowRoot.getElementById('location').value);
+    const timeAway = this.shadowRoot.getElementById('time-away').value;
+    const timeHome = this.shadowRoot.getElementById('time-home').value;
+    const savingsLevel = parseInt(this.shadowRoot.getElementById('savings-level').value);
+
+    const data = {
+      homeSize,
+      homeTemperature: targetTemp,
+      location,
+      timeAway,
+      timeHome,
+      savingsLevel
+    };
+
+    this.callUpdateSchedule(data);
+  }
+
+  handleDetailedSchedule() {
+    const homeSize = parseInt(this.shadowRoot.getElementById('home-size')?.value || 2000);
+    const targetTemp = parseFloat(this.shadowRoot.getElementById('target-temp')?.value || 72);
+    const location = parseInt(this.shadowRoot.getElementById('location')?.value || 1);
+
+    // Build detailed temperature arrays (convert hourly to 30-min intervals)
+    const highTemperatures = [];
+    const lowTemperatures = [];
+
+    for (let hour = 0; hour < 24; hour++) {
+      const highInput = this.shadowRoot.getElementById(`high-${hour}`);
+      const lowInput = this.shadowRoot.getElementById(`low-${hour}`);
+      
+      const highTemp = parseFloat(highInput?.value || 75);
+      const lowTemp = parseFloat(lowInput?.value || 69);
+      
+      // Add twice for 30-minute intervals (2 intervals per hour)
+      highTemperatures.push(highTemp, highTemp);
+      lowTemperatures.push(lowTemp, lowTemp);
+    }
+
+    const data = {
+      homeSize,
+      homeTemperature: targetTemp,
+      location,
+      timeAway: "08:00",
+      timeHome: "17:00",
+      savingsLevel: 2,
+      temperatureSchedule: {
+        highTemperatures,
+        lowTemperatures,
+        intervalMinutes: 30,
+        totalIntervals: 48
+      }
+    };
+
+    this.callUpdateSchedule(data);
+  }
+
+  callUpdateSchedule(data) {
+    if (!this._hass) return;
+
+    this._hass.callService('curve_control', 'update_schedule', data)
+      .then(() => {
+        // Switch back to display tab to show results
+        this.switchTab('display');
+        // Show success message or update UI
+        console.log('Schedule update requested');
+      })
+      .catch(err => {
+        console.error('Failed to update schedule:', err);
+        alert('Failed to update schedule. Please check your settings.');
+      });
+  }
+
+  resetBasicSettings() {
+    this.shadowRoot.getElementById('home-size').value = '2000';
+    this.shadowRoot.getElementById('target-temp').value = '72';
+    this.shadowRoot.getElementById('location').value = '1';
+    this.shadowRoot.getElementById('time-away').value = '08:00';
+    this.shadowRoot.getElementById('time-home').value = '17:00';
+    this.shadowRoot.getElementById('savings-level').value = '2';
+  }
+
+  resetDetailedSchedule() {
+    for (let hour = 0; hour < 24; hour++) {
+      const highInput = this.shadowRoot.getElementById(`high-${hour}`);
+      const lowInput = this.shadowRoot.getElementById(`low-${hour}`);
+      
+      if (highInput) highInput.value = '75';
+      if (lowInput) lowInput.value = '69';
+    }
   }
 
   getCardSize() {
-    return 4;
+    return this.currentTab === 'display' ? 4 : 6;
   }
 }
 

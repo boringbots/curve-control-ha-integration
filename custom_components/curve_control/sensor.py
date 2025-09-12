@@ -38,6 +38,7 @@ async def async_setup_entry(
         CurveControlNextSetpointSensor(coordinator, entry),
         CurveControlCurrentIntervalSensor(coordinator, entry),
         CurveControlScheduleChartSensor(coordinator, entry),
+        CurveControlThermalLearningSensor(coordinator, entry),
     ]
     
     async_add_entities(sensors, True)
@@ -437,3 +438,60 @@ class CurveControlScheduleChartSensor(CurveControlBaseSensor):
         from datetime import datetime
         now = datetime.now()
         return (now.hour * 2) + (now.minute // 30)
+
+
+class CurveControlThermalLearningSensor(CurveControlBaseSensor):
+    """Sensor for thermal learning data."""
+    
+    _attr_name = "Thermal Learning"
+    _attr_icon = "mdi:thermometer-auto"
+    
+    def __init__(self, coordinator, entry):
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_thermal_learning"
+    
+    @property
+    def native_value(self) -> str:
+        """Return the state of the sensor."""
+        if not self.coordinator.thermal_learning:
+            return "Disabled"
+        
+        if self.coordinator.thermal_learning.has_sufficient_data():
+            return "Learning Complete"
+        else:
+            return "Learning"
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        if not self.coordinator.thermal_learning:
+            return {
+                "status": "No thermostat configured",
+                "heat_up_rate": None,
+                "cool_down_rate": None,
+            }
+        
+        # Get thermal learning summary
+        summary = self.coordinator.thermal_learning.get_data_summary()
+        heat_rate, cool_rate = self.coordinator.thermal_learning.get_thermal_rates()
+        
+        # Get default rates for comparison
+        from .const import HEAT_30MIN, COOL_30MIN
+        
+        return {
+            "heat_up_rate_learned": heat_rate,
+            "cool_down_rate_learned": cool_rate,
+            "heat_up_rate_default": HEAT_30MIN,
+            "cool_down_rate_default": COOL_30MIN,
+            "heat_up_rate_current": self.coordinator.heat_up_rate,
+            "cool_down_rate_current": self.coordinator.cool_down_rate,
+            "total_data_points": summary.get("total_data_points"),
+            "recent_data_points": summary.get("recent_data_points"),
+            "cooling_samples": summary.get("cooling_samples"),
+            "heating_samples": summary.get("heating_samples"),
+            "has_sufficient_data": summary.get("has_sufficient_data"),
+            "last_calculation": summary.get("last_calculation"),
+            "learning_window_days": 7,
+            "status": "Learning Complete" if summary.get("has_sufficient_data") else "Collecting Data",
+        }

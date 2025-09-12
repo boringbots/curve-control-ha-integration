@@ -6,14 +6,14 @@ An advanced Home Assistant integration that optimizes your HVAC system based on 
 
 ## Features
 
-- 🏠 **Smart Thermostat Control** - Automatically adjusts temperatures based on electricity rates
-- 💰 **Cost Savings** - Typically saves 10-25% on heating/cooling costs
-- 🌱 **Environmental Impact** - Reduces CO2 emissions by shifting usage to off-peak hours
-- 📊 **Real-time Monitoring** - Track savings, CO2 reduction, and optimization status
-- ⚡ **Multiple Utility Rates** - Supports 7 major utility providers
-- 🎯 **Comfort First** - Maintains your comfort preferences while optimizing
-- 🔄 **Manual Override** - Toggle optimization on/off with a simple switch
-- 📈 **Visual Schedule** - Graph showing 24-hour temperature schedule vs electricity prices
+- **Smart Thermostat Control** - Automatically adjusts temperatures based on electricity rates
+- **Cost Savings** - Typically saves 10-25% on heating/cooling costs
+- **Environmental Impact** - Reduces CO2 emissions by shifting usage to off-peak hours
+- **Real-time Monitoring** - Track savings, CO2 reduction, and optimization status
+- **Multiple Utility Rates** - Supports 7 major utility providers
+- **Comfort First** - Maintains your comfort preferences while optimizing
+- **Manual Override** - Toggle optimization on/off with a simple switch
+- **Visual Schedule** - Graph showing 24-hour temperature schedule vs electricity prices
 
 ## Supported Utility Providers
 

@@ -21,7 +21,7 @@ DEFAULT_TARGET_TEMP: Final = 72
 DEFAULT_LOCATION: Final = 1
 DEFAULT_TIME_AWAY: Final = "08:00"
 DEFAULT_TIME_HOME: Final = "17:00"
-DEFAULT_SAVINGS_LEVEL: Final = 2
+DEFAULT_SAVINGS_LEVEL: Final = 1
 
 # Update interval in minutes (DEPRECATED - now event-driven)
 # UPDATE_INTERVAL: Final = 30
