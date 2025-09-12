@@ -160,8 +160,8 @@ class CurveControlCoordinator(DataUpdateCoordinator):
             "homeSize": entry.data[CONF_HOME_SIZE],
             "homeTemperature": entry.data[CONF_TARGET_TEMP],
             "location": entry.data[CONF_LOCATION],
-            "timeAway": entry.data[CONF_TIME_AWAY],
-            "timeHome": entry.data[CONF_TIME_HOME],
+            "timeAway": str(entry.data[CONF_TIME_AWAY])[:5],  # Convert HH:MM:SS to HH:MM
+            "timeHome": str(entry.data[CONF_TIME_HOME])[:5],  # Convert HH:MM:SS to HH:MM
             "savingsLevel": entry.data[CONF_SAVINGS_LEVEL],
         }
         
@@ -359,6 +359,8 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         """Convert time string to 30-minute interval index (0-47)."""
         try:
             from datetime import datetime
+            # Handle both HH:MM and HH:MM:SS formats
+            time_str = str(time_str)[:5]  # Ensure HH:MM format
             time_obj = datetime.strptime(time_str, "%H:%M")
             total_minutes = time_obj.hour * 60 + time_obj.minute
             return total_minutes // 30
