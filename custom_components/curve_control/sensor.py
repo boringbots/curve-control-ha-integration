@@ -448,7 +448,7 @@ class CurveControlThermalLearningSensor(CurveControlBaseSensor):
     
     def __init__(self, coordinator, entry):
         """Initialize the sensor."""
-        super().__init__(coordinator, entry)
+        super().__init__(coordinator, entry, "thermal_learning", "Thermal Learning")
         self._attr_unique_id = f"{entry.entry_id}_thermal_learning"
     
     @property
