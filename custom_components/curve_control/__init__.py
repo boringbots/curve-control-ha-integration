@@ -53,6 +53,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if coordinator.thermal_learning:
         await coordinator.thermal_learning.async_setup()
     
+    # Add delay to allow backend processing time before first optimization
+    import asyncio
+    _LOGGER.info("Calculating optimal temperature schedule...")
+    await asyncio.sleep(10)
+    
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
     
@@ -99,24 +104,26 @@ async def async_register_custom_card(hass: HomeAssistant) -> None:
         # Ensure www directory exists
         www_dir.mkdir(exist_ok=True)
         
-        # Modern Home Assistant static path registration
-        if hasattr(hass.http, 'register_static_path'):
-            hass.http.register_static_path(
-                "/hacsfiles/curve_control/curve-control-card.js",
-                str(www_dir / "curve-control-card.js"),
-                cache_headers=False
-            )
-        else:
-            # Fallback for newer HA versions - use the frontend.add_extra_resource
-            from homeassistant.components import frontend
-            frontend.async_register_built_in_panel(
-                hass,
-                "curve_control",
-                "Curve Control",
-                "mdi:home-thermometer"
-            )
+        # Try modern registration method first
+        try:
+            if hasattr(hass.http, 'register_static_path'):
+                hass.http.register_static_path(
+                    "/hacsfiles/curve_control/curve-control-card.js",
+                    str(www_dir / "curve-control-card.js"),
+                    cache_headers=False
+                )
+                _LOGGER.info("Registered Curve Control custom card via static path")
+                return
+        except (AttributeError, TypeError):
+            pass
         
-        _LOGGER.info("Registered Curve Control custom card")
+        # Fallback - just ensure the file exists for manual registration
+        card_path = www_dir / "curve-control-card.js"
+        if card_path.exists():
+            _LOGGER.info("Curve Control card available at www/curve-control-card.js")
+        else:
+            _LOGGER.warning("Custom card file not found at www/curve-control-card.js")
+        
     except Exception as err:
         _LOGGER.warning(f"Could not register custom card: {err}")
         # Don't fail the entire integration if card registration fails

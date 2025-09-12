@@ -107,6 +107,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured(updates=user_input)
                 
+                # Show progress message to user
+                self.async_show_progress(
+                    step_id="user", 
+                    progress_action="calculating",
+                    progress_task="Calculating optimal temperature schedule..."
+                )
+                
                 return self.async_create_entry(title=info["title"], data=user_input)
             
             except CannotConnect:
