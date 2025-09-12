@@ -99,27 +99,50 @@ async def async_register_custom_card(hass: HomeAssistant) -> None:
     try:
         import pathlib
         integration_dir = pathlib.Path(__file__).parent
-        www_dir = integration_dir / "www"
         
-        # Ensure www directory exists
-        www_dir.mkdir(exist_ok=True)
-        card_path = www_dir / "curve-control-card.js"
+        # Try multiple locations for the card file
+        possible_locations = [
+            integration_dir / "curve-control-card.js",  # Direct in integration dir
+            integration_dir / "www" / "curve-control-card.js",
+            integration_dir.parent.parent / "www" / "curve-control-card.js",  # In HA www dir
+            pathlib.Path(hass.config.path("www", "curve_control", "curve-control-card.js")),  # User www dir
+        ]
         
-        if not card_path.exists():
-            _LOGGER.warning("Custom card file not found at www/curve-control-card.js")
+        card_path = None
+        www_dir = None
+        
+        for path in possible_locations:
+            if path.exists():
+                card_path = path
+                www_dir = path.parent
+                _LOGGER.info(f"Found custom card at: {path}")
+                break
+        
+        if not card_path:
+            _LOGGER.warning("⚠️  Custom card file not found. Please copy curve-control-card.js to your Home Assistant www directory")
+            _LOGGER.info("📁 Expected locations:")
+            for path in possible_locations:
+                _LOGGER.info(f"   - {path}")
+            _LOGGER.info("💡 Create directory: config/www/curve_control/")
+            _LOGGER.info("📄 Copy file: curve-control-card.js to that directory")
             return
         
         # Register static path for serving the card file
         try:
-            hass.http.register_static_path(
-                "/hacsfiles/curve_control",
-                str(www_dir),
-                cache_headers=False
-            )
-            _LOGGER.info("✅ Custom card available at: /hacsfiles/curve_control/curve-control-card.js")
+            # Determine the correct URL path based on location
+            if "www/curve_control" in str(card_path):
+                url_path = "/local/curve_control"
+                resource_url = "/local/curve_control/curve-control-card.js"
+            else:
+                url_path = "/hacsfiles/curve_control"
+                resource_url = "/hacsfiles/curve_control/curve-control-card.js"
+                hass.http.register_static_path(url_path, str(www_dir), cache_headers=False)
+            
+            _LOGGER.info(f"✅ Custom card available at: {resource_url}")
             _LOGGER.info("📝 To use the card, add this resource to your Lovelace config:")
-            _LOGGER.info("   URL: /hacsfiles/curve_control/curve-control-card.js")
+            _LOGGER.info(f"   URL: {resource_url}")
             _LOGGER.info("   Type: JavaScript Module")
+            _LOGGER.info("🔧 Then add the card with type: custom:curve-control-card")
             
         except Exception as err:
             _LOGGER.warning(f"Could not register static path for custom card: {err}")
