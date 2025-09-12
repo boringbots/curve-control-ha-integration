@@ -85,26 +85,95 @@ After installing the integration, you can add the Curve Control card to your das
 
 The card will automatically update with your optimization schedule and provides full control over the system.
 
-## Example Automation
+## Manual Dashboard Card
+
+If you prefer not to install the custom JavaScript card, you can create a manual dashboard card by copying this YAML code:
 
 ```yaml
-automation:
-  - alias: "Update HVAC Schedule for Weekend"
-    trigger:
-      platform: time
-      at: "06:00:00"
-    condition:
-      condition: time
-      weekday:
-        - sat
-        - sun
-    action:
-      service: curve_control.update_schedule
-      data:
-        time_away: "10:00"
-        time_home: "20:00"
-        savings_level: 3
+type: vertical-stack
+cards:
+  - type: entities
+    title: Curve Control Energy Optimizer
+    entities:
+      - entity: switch.curve_control_use_optimized_temperatures
+        name: Use Optimized Schedule
+        icon: mdi:thermostat-auto
+      - type: divider
+      - entity: sensor.curve_control_status
+        name: Status
+        icon: mdi:information-outline
+      - entity: sensor.curve_control_savings
+        name: Daily Savings
+        icon: mdi:currency-usd
+      - entity: sensor.curve_control_co2_avoided
+        name: CO2 Avoided
+        icon: mdi:leaf
+      - entity: sensor.curve_control_next_setpoint
+        name: Next Temperature
+        icon: mdi:thermometer
+      - entity: sensor.curve_control_current_interval
+        name: Current Interval
+        icon: mdi:clock-outline
+  - type: conditional
+    conditions:
+      - entity: sensor.curve_control_temperature_schedule_chart
+        state_not: unavailable
+    card:
+      type: custom:apexcharts-card
+      header:
+        show: true
+        title: Temperature Schedule vs Electricity Prices
+      graph_span: 24h
+      span:
+        start: day
+      yaxis:
+        - id: temperature
+          min: 65
+          max: 80
+          apex_config:
+            title:
+              text: Temperature (°F)
+        - id: price
+          opposite: true
+          min: 0
+          max: 0.6
+          apex_config:
+            title:
+              text: Price ($/kWh)
+      series:
+        - entity: sensor.curve_control_temperature_schedule_chart
+          attribute: target_temperatures
+          name: Target Temperature
+          type: line
+          color: '#4CAF50'
+          stroke_width: 3
+          yaxis_id: temperature
+        - entity: sensor.curve_control_temperature_schedule_chart
+          attribute: high_limits
+          name: High Limit
+          type: line
+          color: '#FF6384'
+          stroke_width: 2
+          stroke_dasharray: 5
+          yaxis_id: temperature
+        - entity: sensor.curve_control_temperature_schedule_chart
+          attribute: low_limits
+          name: Low Limit
+          type: line
+          color: '#36A2EB'
+          stroke_width: 2
+          stroke_dasharray: 5
+          yaxis_id: temperature
+        - entity: sensor.curve_control_temperature_schedule_chart
+          attribute: electricity_prices
+          name: Electricity Price
+          type: column
+          color: '#FF9800'
+          opacity: 0.3
+          yaxis_id: price
 ```
+
+**Note**: This manual card requires the [ApexCharts Card](https://github.com/RomRider/apexcharts-card) from HACS for the temperature schedule graph. If you don't have ApexCharts installed, remove the conditional card section and use only the entities card.
 
 ## How It Works
 

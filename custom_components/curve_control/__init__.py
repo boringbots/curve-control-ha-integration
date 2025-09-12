@@ -95,61 +95,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_register_custom_card(hass: HomeAssistant) -> None:
-    """Register the custom Lovelace card."""
+    """Provide instructions for custom card installation."""
     try:
         import pathlib
         integration_dir = pathlib.Path(__file__).parent
         
-        # Try multiple locations for the card file
-        possible_locations = [
-            integration_dir / "curve-control-card.js",  # Direct in integration dir
-            integration_dir / "www" / "curve-control-card.js",
-            integration_dir.parent.parent / "www" / "curve-control-card.js",  # In HA www dir
-            pathlib.Path(hass.config.path("www", "curve_control", "curve-control-card.js")),  # User www dir
-        ]
+        # Check if user has already installed the card
+        user_card_path = pathlib.Path(hass.config.path("www", "curve_control", "curve-control-card.js"))
         
-        card_path = None
-        www_dir = None
-        
-        for path in possible_locations:
-            if path.exists():
-                card_path = path
-                www_dir = path.parent
-                _LOGGER.info(f"Found custom card at: {path}")
-                break
-        
-        if not card_path:
-            _LOGGER.warning("⚠️  Custom card file not found. Please copy curve-control-card.js to your Home Assistant www directory")
-            _LOGGER.info("📁 Expected locations:")
-            for path in possible_locations:
-                _LOGGER.info(f"   - {path}")
-            _LOGGER.info("💡 Create directory: config/www/curve_control/")
-            _LOGGER.info("📄 Copy file: curve-control-card.js to that directory")
-            return
-        
-        # Register static path for serving the card file
-        try:
-            # Determine the correct URL path based on location
-            if "www/curve_control" in str(card_path):
-                url_path = "/local/curve_control"
-                resource_url = "/local/curve_control/curve-control-card.js"
+        if user_card_path.exists():
+            _LOGGER.info("✅ Custom card found at: /local/curve_control/curve-control-card.js")
+            _LOGGER.info("🔧 Add this card to your dashboard with type: custom:curve-control-card")
+        else:
+            # Provide installation instructions
+            _LOGGER.info("📋 CUSTOM CARD INSTALLATION REQUIRED:")
+            _LOGGER.info("1️⃣  Create directory: config/www/curve_control/")
+            _LOGGER.info("2️⃣  Copy curve-control-card.js from the integration to that directory")
+            _LOGGER.info("3️⃣  Add this resource to Settings > Dashboards > Resources:")
+            _LOGGER.info("     URL: /local/curve_control/curve-control-card.js")
+            _LOGGER.info("     Type: JavaScript Module")
+            _LOGGER.info("4️⃣  Add card to dashboard with type: custom:curve-control-card")
+            
+            # Check if the card file exists in integration directory
+            integration_card_path = integration_dir / "curve-control-card.js"
+            if integration_card_path.exists():
+                _LOGGER.info(f"💡 Card source file available at: {integration_card_path}")
             else:
-                url_path = "/hacsfiles/curve_control"
-                resource_url = "/hacsfiles/curve_control/curve-control-card.js"
-                hass.http.register_static_path(url_path, str(www_dir), cache_headers=False)
-            
-            _LOGGER.info(f"✅ Custom card available at: {resource_url}")
-            _LOGGER.info("📝 To use the card, add this resource to your Lovelace config:")
-            _LOGGER.info(f"   URL: {resource_url}")
-            _LOGGER.info("   Type: JavaScript Module")
-            _LOGGER.info("🔧 Then add the card with type: custom:curve-control-card")
-            
-        except Exception as err:
-            _LOGGER.warning(f"Could not register static path for custom card: {err}")
-            _LOGGER.info("ℹ️  Manual card installation required")
+                _LOGGER.warning("⚠️  Card source file not found in integration directory")
             
     except Exception as err:
-        _LOGGER.warning(f"Error setting up custom card: {err}")
+        _LOGGER.warning(f"Error checking custom card setup: {err}")
 
 
 
