@@ -17,6 +17,23 @@ class CurveControlCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    
+    // Auto-refresh every 15 seconds if data is pending
+    if (this.isDataPending(hass)) {
+      if (!this._refreshTimer) {
+        this._refreshTimer = setInterval(() => {
+          if (!this.isDataPending(this._hass)) {
+            clearInterval(this._refreshTimer);
+            this._refreshTimer = null;
+          }
+          this.updateDisplay();
+        }, 15000);
+      }
+    } else if (this._refreshTimer) {
+      clearInterval(this._refreshTimer);
+      this._refreshTimer = null;
+    }
+    
     if (!this.shadowRoot.lastElementChild) {
       this.shadowRoot.innerHTML = `
         <style>
@@ -316,9 +333,30 @@ class CurveControlCard extends HTMLElement {
       this.shadowRoot.getElementById('no-data').style.display = 'none';
       this.shadowRoot.getElementById('schedule-chart').style.display = 'block';
     } else {
+      // Check if optimization is pending
+      const statusEntity = this._hass.states['sensor.curve_control_status'];
+      const noDataDiv = this.shadowRoot.getElementById('no-data');
+      
+      if (statusEntity && statusEntity.state === 'Pending') {
+        noDataDiv.innerHTML = 'Calculating optimal schedule... Please wait.';
+      } else {
+        noDataDiv.innerHTML = 'No schedule data available. Optimization will run at midnight or when you update preferences.';
+      }
+      
       this.shadowRoot.getElementById('no-data').style.display = 'block';
       this.shadowRoot.getElementById('schedule-chart').style.display = 'none';
     }
+  }
+  
+  isDataPending(hass) {
+    if (!hass) return false;
+    const statusSensor = hass.states['sensor.curve_control_status'];
+    return statusSensor && statusSensor.state === 'Pending';
+  }
+  
+  updateDisplay() {
+    this.updateCardData();
+    this.updateChartData();
   }
 
   drawChart(graphData) {

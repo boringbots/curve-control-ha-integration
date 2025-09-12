@@ -259,7 +259,11 @@ class CurveControlCoordinator(DataUpdateCoordinator):
                 response.raise_for_status()
                 data = await response.json()
                 
-                # Store the results
+                # Validate response structure
+                if not isinstance(data, dict):
+                    raise ValueError("Backend returned invalid data format")
+                
+                # Store the results with validation
                 self.optimization_results = data
                 self.schedule_data = data.get("HourlyTemperature", [])
                 
@@ -268,13 +272,15 @@ class CurveControlCoordinator(DataUpdateCoordinator):
                 self._daily_schedule = data.get("bestTempActual", [])
                 self._schedule_date = datetime.now().date()
                 
-                _LOGGER.info(f"Optimization complete. Schedule updated for {self._schedule_date}")
+                _LOGGER.info(f"Optimization complete. Received {len(self.schedule_data)} hourly temperatures and {len(self._daily_schedule)} daily setpoints")
                 
                 return data
                 
         except aiohttp.ClientError as err:
+            _LOGGER.error(f"Backend communication error: {err}")
             raise UpdateFailed(f"Error communicating with backend: {err}")
         except Exception as err:
+            _LOGGER.error(f"Coordinator optimization error: {err}")
             raise UpdateFailed(f"Unexpected error: {err}")
     
     async def async_update_schedule(self, data: dict[str, Any]) -> None:
