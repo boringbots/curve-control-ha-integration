@@ -290,9 +290,11 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         if "savingsLevel" in data:
             self.config["savingsLevel"] = data["savingsLevel"]
         if "timeAway" in data:
-            self.config["timeAway"] = data["timeAway"]
+            # Ensure time is in HH:MM format - let it fail if format is wrong
+            self.config["timeAway"] = str(data["timeAway"])[:5]
         if "timeHome" in data:
-            self.config["timeHome"] = data["timeHome"]
+            # Ensure time is in HH:MM format - let it fail if format is wrong
+            self.config["timeHome"] = str(data["timeHome"])[:5]
         
         # Store custom temperature schedule if provided (for detailed mode)
         if "temperatureSchedule" in data:

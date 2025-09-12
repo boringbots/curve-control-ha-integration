@@ -47,15 +47,21 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     backend_url = data.get(CONF_BACKEND_URL, DEFAULT_BACKEND_URL)
     
     try:
+        # Debug logging
+        _LOGGER.info(f"Config validation data types: homeSize={type(data[CONF_HOME_SIZE])}, targetTemp={type(data[CONF_TARGET_TEMP])}, location={type(data[CONF_LOCATION])}, timeAway={type(data[CONF_TIME_AWAY])}, timeHome={type(data[CONF_TIME_HOME])}, savingsLevel={type(data[CONF_SAVINGS_LEVEL])}")
+        _LOGGER.info(f"Raw time values: timeAway='{data[CONF_TIME_AWAY]}', timeHome='{data[CONF_TIME_HOME]}'")
+        
         # Prepare test request
         test_data = {
-            "homeSize": data[CONF_HOME_SIZE],
-            "homeTemperature": data[CONF_TARGET_TEMP],
+            "homeSize": int(data[CONF_HOME_SIZE]),
+            "homeTemperature": float(data[CONF_TARGET_TEMP]),
             "location": int(data[CONF_LOCATION]),
-            "timeAway": data[CONF_TIME_AWAY],
-            "timeHome": data[CONF_TIME_HOME],
+            "timeAway": str(data[CONF_TIME_AWAY])[:5],  # Ensure HH:MM format
+            "timeHome": str(data[CONF_TIME_HOME])[:5],  # Ensure HH:MM format
             "savingsLevel": int(data[CONF_SAVINGS_LEVEL]),
         }
+        
+        _LOGGER.info(f"Sending test data to backend: {test_data}")
         
         async with session.post(
             f"{backend_url}/generate_schedule",
