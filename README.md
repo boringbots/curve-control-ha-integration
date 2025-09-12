@@ -79,23 +79,23 @@ cards:
   - type: entities
     title: Curve Control Energy Optimizer  
     entities:
-      - entity: switch.curve_control_use_optimized_temperatures
+      - entity: switch.curve_control_energy_optimizer_use_optimized_temperatures
         name: Use Optimized Schedule
         icon: mdi:chart-line
-      - entity: sensor.curve_control_status
+      - entity: sensor.curve_control_energy_optimizer_status
         name: Status
   - type: horizontal-stack
     cards:
       - type: entity
-        entity: sensor.curve_control_savings
+        entity: sensor.curve_control_energy_optimizer_savings
         name: Cost Savings
         icon: mdi:currency-usd
       - type: entity
-        entity: sensor.curve_control_co2_avoided
+        entity: sensor.curve_control_energy_optimizer_co2_avoided
         name: CO2 Avoided
         icon: mdi:molecule-co2
       - type: entity
-        entity: sensor.curve_control_next_setpoint
+        entity: sensor.curve_control_energy_optimizer_next_setpoint
         name: Next Target
         icon: mdi:thermometer
 ```
@@ -127,7 +127,7 @@ yaxis:
       title:
         text: Price ($/kWh)
 series:
-  - entity: sensor.curve_control_temperature_schedule_chart
+  - entity: sensor.curve_control_energy_optimizer_schedule_chart
     name: Target Temperature
     yaxis_id: temp
     data_generator: |
@@ -144,7 +144,7 @@ series:
     type: line
     color: green
     stroke_width: 3
-  - entity: sensor.curve_control_temperature_schedule_chart
+  - entity: sensor.curve_control_energy_optimizer_schedule_chart
     name: Electricity Price
     yaxis_id: price
     data_generator: |
