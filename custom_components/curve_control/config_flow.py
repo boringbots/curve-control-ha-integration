@@ -213,10 +213,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="weather")
                 ),
-                vol.Optional(
-                    CONF_BACKEND_URL,
-                    default=DEFAULT_BACKEND_URL,
-                ): str,
             }
         )
         

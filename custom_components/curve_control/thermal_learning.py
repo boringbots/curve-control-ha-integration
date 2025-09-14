@@ -27,7 +27,7 @@ STORAGE_KEY = "thermal_learning"
 MIN_TEMP_CHANGE = 0.5  # Minimum temperature change to consider valid
 MAX_TEMP_CHANGE = 10.0  # Maximum temperature change to consider valid
 MIN_INTERVAL_MINUTES = 20  # Minimum time interval for measurement
-MAX_INTERVAL_MINUTES = 40  # Maximum time interval for measurement  
+MAX_INTERVAL_MINUTES = 60  # Maximum time interval for measurement  
 MIN_SAMPLES_FOR_CALCULATION = 5  # Minimum samples before calculating rates
 ROLLING_WINDOW_DAYS = 7  # Number of days for rolling average
 

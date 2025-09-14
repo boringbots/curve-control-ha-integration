@@ -179,14 +179,16 @@ class CurveControlCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Fetch data from backend."""
         try:
-            # Get current thermostat state if available
+            # Get current thermostat state if available (for reference, but don't override user preferences)
             thermostat_entity = self.entry.data.get(CONF_THERMOSTAT_ENTITY)
+            current_actual_temp = None
             if thermostat_entity:
                 state = self.hass.states.get(thermostat_entity)
                 if state:
-                    current_temp = state.attributes.get("current_temperature")
-                    if current_temp:
-                        self.config["homeTemperature"] = current_temp
+                    current_actual_temp = state.attributes.get("current_temperature")
+                    _LOGGER.debug(f"Current actual thermostat temperature: {current_actual_temp}")
+            
+            _LOGGER.info(f"DEBUG: Config before optimization - homeTemperature: {self.config.get('homeTemperature')}")
             
             # Update thermal rates from learning if available
             if self.thermal_learning:
@@ -211,6 +213,8 @@ class CurveControlCoordinator(DataUpdateCoordinator):
                 "heatUpRate": self.heat_up_rate,
                 "coolDownRate": self.cool_down_rate,
             }
+            
+            _LOGGER.info(f"DEBUG: Sending to Heroku backend: {request_data}")
             
             # Call backend for optimization
             async with async_timeout.timeout(30):
@@ -248,6 +252,7 @@ class CurveControlCoordinator(DataUpdateCoordinator):
     async def async_update_schedule(self, data: dict[str, Any]) -> None:
         """Update the schedule configuration and trigger immediate optimization."""
         _LOGGER.info("User updated preferences - triggering optimization")
+        _LOGGER.info(f"DEBUG: Received service call data: {data}")
         
         # Update configuration from frontend data
         if "homeSize" in data:
@@ -272,6 +277,8 @@ class CurveControlCoordinator(DataUpdateCoordinator):
         else:
             # Clear custom schedule for basic mode
             self._custom_temperature_schedule = None
+        
+        _LOGGER.info(f"DEBUG: Updated config after service call: {self.config}")
         
         # Trigger immediate optimization
         await self.async_request_refresh()
