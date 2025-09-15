@@ -96,7 +96,7 @@ yaxis:
   - id: price
     opposite: true
     min: 0
-    max: 1.5
+    max: 1.6  # Use 1.0 for locations 1-7, 1.6 for location 8 (NYC)
     decimals: 1
     apex_config:
       title:
