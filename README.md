@@ -96,7 +96,7 @@ yaxis:
   - id: price
     opposite: true
     min: 0
-    max: 1
+    max: 1.5
     decimals: 1
     apex_config:
       title:
