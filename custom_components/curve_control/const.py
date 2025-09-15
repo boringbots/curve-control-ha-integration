@@ -39,6 +39,7 @@ LOCATIONS: Final = {
     5: "San Diego Gas & Electric Standard DR",
     6: "New Hampshire TOU Whole House Domestic",
     7: "Texas XCEL Time-Of-Use",
+    8: "NYC ConEdison Residential TOU",
 }
 
 # Savings levels
