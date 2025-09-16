@@ -192,11 +192,17 @@ class CurveControlCoordinator(DataUpdateCoordinator):
             
             # Update thermal rates from learning if available
             if self.thermal_learning:
-                learned_heat_rate, learned_cool_rate = self.thermal_learning.get_thermal_rates_with_fallback()
-                self.heat_up_rate = learned_heat_rate
-                self.cool_down_rate = learned_cool_rate
-                
-                _LOGGER.debug(f"Using thermal rates - Heat: {self.heat_up_rate:.4f}, Cool: {self.cool_down_rate:.4f}")
+                learned_heating_rate, learned_cooling_rate, learned_natural_rate = self.thermal_learning.get_thermal_rates_with_fallback()
+
+                # For the backend optimization, we primarily use cooling rate and natural rate
+                # The backend expects heat_up_rate (natural gain) and cool_down_rate (AC cooling)
+                self.heat_up_rate = learned_natural_rate  # Natural temperature change when HVAC is off
+                self.cool_down_rate = learned_cooling_rate  # AC cooling rate
+
+                _LOGGER.debug(f"Using learned thermal rates - Heating: {learned_heating_rate:.4f}, "
+                             f"Cooling: {learned_cooling_rate:.4f}, Natural: {learned_natural_rate:.4f}")
+                _LOGGER.debug(f"Backend rates - Heat-up (natural): {self.heat_up_rate:.4f}, "
+                             f"Cool-down (AC): {self.cool_down_rate:.4f}")
             
             # Generate 30-minute temperature schedule (custom or basic)
             if self._custom_temperature_schedule:

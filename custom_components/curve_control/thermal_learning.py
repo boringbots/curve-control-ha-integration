@@ -66,8 +66,9 @@ class ThermalLearningManager:
         self.last_measurement: Optional[Dict] = None
         
         # Calculated rates
-        self.heat_up_rate: Optional[float] = None
-        self.cool_down_rate: Optional[float] = None
+        self.heating_rate: Optional[float] = None      # When heater is ON
+        self.cooling_rate: Optional[float] = None      # When AC is ON
+        self.natural_rate: Optional[float] = None      # When HVAC is OFF/idle
         self.last_calculation: Optional[datetime] = None
         
         # State tracking
@@ -188,89 +189,107 @@ class ThermalLearningManager:
             _LOGGER.debug(f"Error processing state change: {err}")
     
     async def _async_calculate_rates(self) -> None:
-        """Calculate heat-up and cool-down rates from collected data."""
+        """Calculate heating, cooling, and natural rates from collected data."""
         now = datetime.now()
         cutoff_date = now - timedelta(days=ROLLING_WINDOW_DAYS)
-        
+
         # Filter recent data
         recent_data = [
-            point for point in self.thermal_data 
+            point for point in self.thermal_data
             if point.timestamp > cutoff_date
         ]
-        
-        # Separate heating and cooling data
-        heating_rates = []
-        cooling_rates = []
-        idle_heating_rates = []  # When HVAC is off but temperature rises
-        
+
+        # Separate data by HVAC action and temperature change direction
+        heating_rates = []      # When heater is ON and temp rises
+        cooling_rates = []      # When AC is ON and temp drops
+        natural_rates = []      # When HVAC is OFF/idle (any temp change)
+
         for point in recent_data:
             if point.hvac_action == 'heating' and point.temp_change > 0:
+                # Heater is on and temperature is rising
                 heating_rates.append(point.rate_per_30min)
             elif point.hvac_action == 'cooling' and point.temp_change < 0:
-                cooling_rates.append(abs(point.rate_per_30min))  # Use absolute value
-            elif point.hvac_action in ['idle', 'off'] and point.temp_change > 0:
-                idle_heating_rates.append(point.rate_per_30min)
-        
+                # AC is on and temperature is dropping (use absolute value for positive rate)
+                cooling_rates.append(abs(point.rate_per_30min))
+            elif point.hvac_action in ['idle', 'off']:
+                # HVAC is off - natural temperature change (can be positive or negative)
+                natural_rates.append(point.rate_per_30min)
+
         # Calculate averages if we have enough data
-        if len(idle_heating_rates) >= MIN_SAMPLES_FOR_CALCULATION:
-            self.heat_up_rate = sum(idle_heating_rates) / len(idle_heating_rates)
-            _LOGGER.info(f"Calculated heat-up rate: {self.heat_up_rate:.4f}°F/30min from {len(idle_heating_rates)} samples")
-        
+        if len(heating_rates) >= MIN_SAMPLES_FOR_CALCULATION:
+            self.heating_rate = sum(heating_rates) / len(heating_rates)
+            _LOGGER.info(f"Calculated heating rate: {self.heating_rate:.4f}°F/30min from {len(heating_rates)} samples")
+
         if len(cooling_rates) >= MIN_SAMPLES_FOR_CALCULATION:
-            self.cool_down_rate = sum(cooling_rates) / len(cooling_rates)
-            _LOGGER.info(f"Calculated cool-down rate: {self.cool_down_rate:.4f}°F/30min from {len(cooling_rates)} samples")
-        
+            self.cooling_rate = sum(cooling_rates) / len(cooling_rates)
+            _LOGGER.info(f"Calculated cooling rate: {self.cooling_rate:.4f}°F/30min from {len(cooling_rates)} samples")
+
+        if len(natural_rates) >= MIN_SAMPLES_FOR_CALCULATION:
+            self.natural_rate = sum(natural_rates) / len(natural_rates)
+            _LOGGER.info(f"Calculated natural rate: {self.natural_rate:.4f}°F/30min from {len(natural_rates)} samples")
+
         self.last_calculation = now
-        
+
         # Save updated data
         await self._async_save_data()
     
-    def get_thermal_rates(self) -> Tuple[Optional[float], Optional[float]]:
-        """Get current thermal rates."""
-        return self.heat_up_rate, self.cool_down_rate
-    
-    def get_thermal_rates_with_fallback(self) -> Tuple[float, float]:
-        """Get thermal rates with fallback to defaults."""
-        heat_rate = self.heat_up_rate if self.heat_up_rate is not None else HEAT_30MIN
-        cool_rate = self.cool_down_rate if self.cool_down_rate is not None else COOL_30MIN
-        return heat_rate, cool_rate
+    def get_thermal_rates(self) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+        """Get current thermal rates: (heating, cooling, natural)."""
+        return self.heating_rate, self.cooling_rate, self.natural_rate
+
+    def get_thermal_rates_with_fallback(self) -> Tuple[float, float, float]:
+        """Get thermal rates with fallback to defaults: (heating, cooling, natural)."""
+        heating_rate = self.heating_rate if self.heating_rate is not None else HEAT_30MIN * 3  # Heating should be faster than natural
+        cooling_rate = self.cooling_rate if self.cooling_rate is not None else COOL_30MIN
+        natural_rate = self.natural_rate if self.natural_rate is not None else HEAT_30MIN  # Natural heat gain
+        return heating_rate, cooling_rate, natural_rate
     
     def has_sufficient_data(self) -> bool:
         """Check if we have sufficient data for reliable calculations."""
         now = datetime.now()
         cutoff_date = now - timedelta(days=ROLLING_WINDOW_DAYS)
-        
+
         recent_data = [
-            point for point in self.thermal_data 
+            point for point in self.thermal_data
             if point.timestamp > cutoff_date
         ]
-        
+
+        heating_count = sum(1 for p in recent_data if p.hvac_action == 'heating' and p.temp_change > 0)
         cooling_count = sum(1 for p in recent_data if p.hvac_action == 'cooling' and p.temp_change < 0)
-        heating_count = sum(1 for p in recent_data if p.hvac_action in ['idle', 'off'] and p.temp_change > 0)
-        
-        return (cooling_count >= MIN_SAMPLES_FOR_CALCULATION and 
-                heating_count >= MIN_SAMPLES_FOR_CALCULATION)
+        natural_count = sum(1 for p in recent_data if p.hvac_action in ['idle', 'off'])
+
+        # Require sufficient data for at least 2 of the 3 categories
+        sufficient_categories = sum([
+            heating_count >= MIN_SAMPLES_FOR_CALCULATION,
+            cooling_count >= MIN_SAMPLES_FOR_CALCULATION,
+            natural_count >= MIN_SAMPLES_FOR_CALCULATION
+        ])
+
+        return sufficient_categories >= 2
     
     def get_data_summary(self) -> Dict:
         """Get summary of collected thermal data."""
         now = datetime.now()
         cutoff_date = now - timedelta(days=ROLLING_WINDOW_DAYS)
-        
+
         recent_data = [
-            point for point in self.thermal_data 
+            point for point in self.thermal_data
             if point.timestamp > cutoff_date
         ]
-        
+
+        heating_data = [p for p in recent_data if p.hvac_action == 'heating' and p.temp_change > 0]
         cooling_data = [p for p in recent_data if p.hvac_action == 'cooling' and p.temp_change < 0]
-        heating_data = [p for p in recent_data if p.hvac_action in ['idle', 'off'] and p.temp_change > 0]
-        
+        natural_data = [p for p in recent_data if p.hvac_action in ['idle', 'off']]
+
         return {
             'total_data_points': len(self.thermal_data),
             'recent_data_points': len(recent_data),
-            'cooling_samples': len(cooling_data),
             'heating_samples': len(heating_data),
-            'heat_up_rate': self.heat_up_rate,
-            'cool_down_rate': self.cool_down_rate,
+            'cooling_samples': len(cooling_data),
+            'natural_samples': len(natural_data),
+            'heating_rate': self.heating_rate,
+            'cooling_rate': self.cooling_rate,
+            'natural_rate': self.natural_rate,
             'last_calculation': self.last_calculation.isoformat() if self.last_calculation else None,
             'has_sufficient_data': self.has_sufficient_data(),
         }
@@ -295,9 +314,10 @@ class ThermalLearningManager:
                     except (KeyError, ValueError) as err:
                         _LOGGER.debug(f"Could not load thermal data point: {err}")
                 
-                # Load calculated rates
-                self.heat_up_rate = data.get('heat_up_rate')
-                self.cool_down_rate = data.get('cool_down_rate')
+                # Load calculated rates (support both old and new format)
+                self.heating_rate = data.get('heating_rate', data.get('heat_up_rate'))  # Backward compatibility
+                self.cooling_rate = data.get('cooling_rate', data.get('cool_down_rate'))  # Backward compatibility
+                self.natural_rate = data.get('natural_rate')
                 
                 if data.get('last_calculation'):
                     self.last_calculation = datetime.fromisoformat(data['last_calculation'])
@@ -323,8 +343,9 @@ class ThermalLearningManager:
             
             data = {
                 'thermal_data': thermal_data_raw,
-                'heat_up_rate': self.heat_up_rate,
-                'cool_down_rate': self.cool_down_rate,
+                'heating_rate': self.heating_rate,
+                'cooling_rate': self.cooling_rate,
+                'natural_rate': self.natural_rate,
                 'last_calculation': self.last_calculation.isoformat() if self.last_calculation else None,
             }
             

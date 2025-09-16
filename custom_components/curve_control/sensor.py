@@ -468,28 +468,31 @@ class CurveControlThermalLearningSensor(CurveControlBaseSensor):
         if not self.coordinator.thermal_learning:
             return {
                 "status": "No thermostat configured",
-                "heat_up_rate": None,
-                "cool_down_rate": None,
+                "heating_rate_learned": None,
+                "cooling_rate_learned": None,
+                "natural_rate_learned": None,
             }
         
         # Get thermal learning summary
         summary = self.coordinator.thermal_learning.get_data_summary()
-        heat_rate, cool_rate = self.coordinator.thermal_learning.get_thermal_rates()
+        heating_rate, cooling_rate, natural_rate = self.coordinator.thermal_learning.get_thermal_rates()
         
         # Get default rates for comparison
         from .const import HEAT_30MIN, COOL_30MIN
         
         return {
-            "heat_up_rate_learned": heat_rate,
-            "cool_down_rate_learned": cool_rate,
+            "heating_rate_learned": heating_rate,
+            "cooling_rate_learned": cooling_rate,
+            "natural_rate_learned": natural_rate,
             "heat_up_rate_default": HEAT_30MIN,
             "cool_down_rate_default": COOL_30MIN,
             "heat_up_rate_current": self.coordinator.heat_up_rate,
             "cool_down_rate_current": self.coordinator.cool_down_rate,
             "total_data_points": summary.get("total_data_points"),
             "recent_data_points": summary.get("recent_data_points"),
-            "cooling_samples": summary.get("cooling_samples"),
             "heating_samples": summary.get("heating_samples"),
+            "cooling_samples": summary.get("cooling_samples"),
+            "natural_samples": summary.get("natural_samples"),
             "has_sufficient_data": summary.get("has_sufficient_data"),
             "last_calculation": summary.get("last_calculation"),
             "learning_window_days": 7,
