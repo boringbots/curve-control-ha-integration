@@ -82,8 +82,8 @@ APEX_CHART_CARD = {
     "yaxis": [
         {
             "id": "temp",
-            "min": 65,
-            "max": 80,
+            "min": 0,
+            "max": 100,
             "decimals": 1,
             "apex_config": {
                 "title": {
@@ -95,7 +95,7 @@ APEX_CHART_CARD = {
             "id": "price",
             "opposite": True,
             "min": 0,
-            "max": 0.6,
+            "max": "~(entity.attributes.location === 8 ? 1.6 : 1.0)",
             "decimals": 2,
             "apex_config": {
                 "title": {
