@@ -95,11 +95,11 @@ APEX_CHART_CARD = {
             "id": "price",
             "opposite": True,
             "min": 0,
-            "max": "~(entity.attributes.location === 8 ? 1.6 : 1.0)",
+            "max": "~(entity.attributes.location === 8 ? 160 : 100)",
             "decimals": 2,
             "apex_config": {
                 "title": {
-                    "text": "Price ($/kWh)"
+                    "text": "Price (¢/kWh)"
                 }
             }
         }

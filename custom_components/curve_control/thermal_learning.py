@@ -28,7 +28,7 @@ MIN_TEMP_CHANGE = 0.5  # Minimum temperature change to consider valid
 MAX_TEMP_CHANGE = 10.0  # Maximum temperature change to consider valid
 MIN_INTERVAL_MINUTES = 20  # Minimum time interval for measurement
 MAX_INTERVAL_MINUTES = 60  # Maximum time interval for measurement  
-MIN_SAMPLES_FOR_CALCULATION = 5  # Minimum samples before calculating rates
+MIN_SAMPLES_FOR_CALCULATION = 20  # Minimum samples before calculating rates
 ROLLING_WINDOW_DAYS = 7  # Number of days for rolling average
 
 
@@ -258,14 +258,11 @@ class ThermalLearningManager:
         cooling_count = sum(1 for p in recent_data if p.hvac_action == 'cooling' and p.temp_change < 0)
         natural_count = sum(1 for p in recent_data if p.hvac_action in ['idle', 'off'])
 
-        # Require sufficient data for at least 2 of the 3 categories
-        sufficient_categories = sum([
-            heating_count >= MIN_SAMPLES_FOR_CALCULATION,
-            cooling_count >= MIN_SAMPLES_FOR_CALCULATION,
-            natural_count >= MIN_SAMPLES_FOR_CALCULATION
-        ])
-
-        return sufficient_categories >= 2
+        # Consider learning complete if we have at least 20 data points in any category
+        # This matches the threshold for actually using calculated rates
+        return (heating_count >= MIN_SAMPLES_FOR_CALCULATION or
+                cooling_count >= MIN_SAMPLES_FOR_CALCULATION or
+                natural_count >= MIN_SAMPLES_FOR_CALCULATION)
     
     def get_data_summary(self) -> Dict:
         """Get summary of collected thermal data."""
