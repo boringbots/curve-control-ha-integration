@@ -96,15 +96,17 @@ yaxis:
   - id: price
     opposite: true
     min: 0
-    max: 1.6  # Use 1.0 for locations 1-7, 1.6 for location 8 (NYC)
+    max: 160  # Use 100 for locations 1-7, 160 for location 8 (NYC)
     decimals: 1
     apex_config:
       title:
-        text: Price ($/kWh)
+        text: Price (¢/kWh)
 series:
   - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
     name: Target Temperature
     yaxis_id: temp
+    show:
+      legend_value: false
     data_generator: |
       const data = entity.attributes.graph_data;
       if (!data || !data.datasets) return [];
@@ -122,6 +124,8 @@ series:
   - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
     name: High Limit
     yaxis_id: temp
+    show:
+      legend_value: false
     data_generator: |
       const data = entity.attributes.graph_data;
       if (!data || !data.datasets) return [];
@@ -134,13 +138,15 @@ series:
         return [time.getTime(), temp];
       });
     type: line
-    color: blue
+    color: red
     stroke_width: 2
     stroke_dash: 5
     opacity: 0.7
   - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
     name: Low Limit
     yaxis_id: temp
+    show:
+      legend_value: false
     data_generator: |
       const data = entity.attributes.graph_data;
       if (!data || !data.datasets) return [];
@@ -160,6 +166,8 @@ series:
   - entity: sensor.curve_control_energy_optimizer_temperature_schedule_chart
     name: Electricity Price
     yaxis_id: price
+    show:
+      legend_value: false
     data_generator: |
       const data = entity.attributes.graph_data;
       if (!data || !data.datasets) return [];
